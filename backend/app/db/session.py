@@ -20,8 +20,10 @@ def get_engine(db_url: Optional[str] = None):
     Ensures connection pooling for PostgreSQL.
     """
     global _engine, _session_factory
-    url = db_url or settings.DATABASE_URL
-    if not url:
+    url = settings.DATABASE_URL if db_url is None else db_url
+    if not url or not url.strip():
+        if getattr(settings, "ENVIRONMENT", "").lower() == "production":
+            raise RuntimeError("Production environment requires a configured DATABASE_URL. In-memory fallback is strictly disabled.")
         return None
 
     if _engine is None or db_url is not None or str(_engine.url) != url:
@@ -57,6 +59,8 @@ def get_session_factory(db_url: Optional[str] = None):
     if _session_factory is None or db_url is not None:
         eng = get_engine(db_url)
         if eng is None:
+            if getattr(settings, "ENVIRONMENT", "").lower() == "production":
+                raise RuntimeError("Database session factory could not be initialized in production. Check DATABASE_URL configuration.")
             return None
         factory = sessionmaker(autocommit=False, autoflush=False, bind=eng, future=True)
         if db_url is None:
@@ -71,6 +75,12 @@ def check_db_connection(db_url: Optional[str] = None) -> dict:
     """
     url = settings.DATABASE_URL if db_url is None else db_url
     if not url or not url.strip():
+        if getattr(settings, "ENVIRONMENT", "").lower() == "production":
+            return {
+                "connected": False,
+                "status": "misconfigured",
+                "message": "DATABASE_URL is missing in production environment. In-memory fallback is strictly disabled."
+            }
         return {
             "connected": False,
             "status": "disabled",
@@ -104,10 +114,18 @@ def check_db_connection(db_url: Optional[str] = None) -> dict:
 def get_db() -> Generator[Optional[Session], None, None]:
     """
     FastAPI dependency yielding an isolated database session with automatic commit/rollback and cleanup.
-    Yields None if the database is not configured or unreachable.
+    Yields None if the database is not configured or unreachable in non-production environments.
+    Strictly raises in production if DATABASE_URL or the database factory is unconfigured.
     """
+    if getattr(settings, "ENVIRONMENT", "").lower() == "production":
+        url = settings.DATABASE_URL
+        if not url or not url.strip():
+            raise RuntimeError("Database session factory could not be initialized in production: DATABASE_URL is missing. In-memory fallback is disabled.")
+
     factory = get_session_factory()
     if factory is None:
+        if getattr(settings, "ENVIRONMENT", "").lower() == "production":
+            raise RuntimeError("Database session factory could not be initialized in production. Check DATABASE_URL configuration.")
         yield None
         return
 

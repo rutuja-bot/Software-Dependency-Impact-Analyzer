@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -7,12 +8,29 @@ from app.api.routes.analysis import router as analysis_router
 from app.api.routes.projects import router as projects_router
 from app.api.routes.analyses import router as analyses_router
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Enforces that production mode requires a verified active PostgreSQL connection.
+    In-memory fallback is strictly disallowed in production.
+    """
+    if getattr(settings, "ENVIRONMENT", "").lower() == "production":
+        from app.db.session import check_db_connection
+        status = check_db_connection()
+        if not status.get("connected"):
+            raise RuntimeError(
+                f"Production startup failed: PostgreSQL database is unreachable ({status.get('message')}). "
+                "In-memory fallback is disabled in production."
+            )
+    yield
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     description="Software Dependency Impact Analyzer - Graph-based Dependency Analysis Engine",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # CORS configuration
