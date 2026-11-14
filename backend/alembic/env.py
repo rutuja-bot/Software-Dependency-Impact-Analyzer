@@ -36,28 +36,35 @@ def get_url():
         )
 
     # Validate against migration safety guard
-    approved_host = os.getenv("APPROVED_STAGING_HOST")
+    approved_staging_host = os.getenv("APPROVED_STAGING_HOST")
     staging_migration = os.getenv("STAGING_MIGRATION", "").lower() in ("1", "true", "yes")
+    approved_production_host = os.getenv("APPROVED_PRODUCTION_HOST")
+    production_migration = os.getenv("PRODUCTION_MIGRATION", "").lower() in ("1", "true", "yes")
     env_name = getattr(settings, "ENVIRONMENT", "development")
 
     target_env = resolve_migration_target(
         settings_env=env_name,
-        approved_host=approved_host,
-        staging_migration=staging_migration
+        approved_host=approved_staging_host,
+        staging_migration=staging_migration,
+        approved_production_host=approved_production_host,
+        production_migration=production_migration
     )
 
-    if target_env == "production":
+    if target_env == "production" and not production_migration:
         raise RuntimeError(
-            "Alembic migration stopped: Production database migrations are strictly prohibited. "
-            "Under the current deployment policy, migrations may only be executed against an authorized staging database."
+            "Alembic migration stopped: Production database migrations are strictly prohibited by default. "
+            "Under the current deployment policy, migrations may only be executed against an authorized staging database, "
+            "or an explicitly authorized production database with PRODUCTION_MIGRATION=true."
         )
 
     validate_db_target(
         url=url,
         environment=target_env,
-        approved_host=approved_host,
+        approved_host=approved_staging_host,
         is_migration=True,
-        staging_migration=staging_migration
+        staging_migration=staging_migration,
+        approved_production_host=approved_production_host,
+        production_migration=production_migration
     )
     return url
 
