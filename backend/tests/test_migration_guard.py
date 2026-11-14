@@ -154,17 +154,96 @@ def test_migrations_cannot_target_local_dev_db_in_staging_or_production():
     # Staging migration targeting local development db
     staging_local = f"postgresql://user:pass@{APPROVED_STAGING_HOST}:5432/dependency_analyzer_dev?sslmode=require"
     with pytest.raises(DatabaseTargetError, match="strictly forbidden in staging"):
-        validate_db_target(staging_local, environment="staging", approved_host=APPROVED_STAGING_HOST, is_migration=True)
+        validate_db_target(staging_local, environment="staging", approved_host=APPROVED_STAGING_HOST, is_migration=True, staging_migration=True)
 
     # Production migration targeting local development db
     prod_local = "postgresql://user:pass@ep-prod-instance.neon.tech:5432/dependency_analyzer_dev?sslmode=require"
-    with pytest.raises(DatabaseTargetError, match="cannot be targeted in production"):
+    with pytest.raises(DatabaseTargetError, match="Production database migrations are strictly prohibited"):
         validate_db_target(prod_local, environment="production", is_migration=True)
 
     # Migration targeting loopback address in production
     prod_loopback = "postgresql://user:pass@127.0.0.1:5432/proddb?sslmode=require"
-    with pytest.raises(DatabaseTargetError, match="cannot be targeted in production"):
+    with pytest.raises(DatabaseTargetError, match="Production database migrations are strictly prohibited"):
         validate_db_target(prod_loopback, environment="production", is_migration=True)
+
+    # Application connections to local db in production
+    with pytest.raises(DatabaseTargetError, match="cannot be targeted in production"):
+        validate_db_target(prod_local, environment="production", is_migration=False)
+
+def test_sqlite_rejected_in_production_application_connections():
+    with pytest.raises(DatabaseTargetError, match="SQLite is strictly prohibited in production application connections"):
+        validate_db_target("sqlite:///production.db", environment="production", is_migration=False)
+
+    with pytest.raises(DatabaseTargetError, match="SQLite is strictly prohibited in production application connections"):
+        validate_db_target("sqlite:///:memory:", environment="production", is_migration=False)
+
+    with pytest.raises(DatabaseTargetError, match="SQLite is strictly prohibited in production application connections"):
+        validate_db_target("sqlite:///production.db", environment="production", is_migration=True)
+
+def test_sqlite_available_for_development_and_tests():
+    # Development application connections
+    validate_db_target("sqlite:///dev.db", environment="development", is_migration=False)
+    validate_db_target("sqlite:///:memory:", environment="development", is_migration=False)
+
+    # Unit tests and test environment
+    validate_db_target("sqlite:///:memory:", environment="test", is_migration=False)
+    validate_db_target("sqlite:///test.db", environment=None, is_migration=False)
+
+    # Local development migrations with SQLite
+    validate_db_target("sqlite:///dev.db", environment="development", is_migration=True)
+
+def test_production_migrations_strictly_blocked():
+    valid_prod_url = "postgresql://prod_user:secret@ep-prod-instance.neon.tech:5432/proddb?sslmode=require"
+    with pytest.raises(DatabaseTargetError, match="Production database migrations are strictly prohibited"):
+        validate_db_target(valid_prod_url, environment="production", is_migration=True)
+
+def test_staging_migrations_fail_if_authorization_flags_missing():
+    valid_staging_url = f"postgresql://user:pass@{APPROVED_STAGING_HOST}:5432/neondb?sslmode=require"
+
+    # Missing STAGING_MIGRATION flag
+    with pytest.raises(DatabaseTargetError, match="STAGING_MIGRATION=true is required to execute migrations against staging"):
+        validate_db_target(valid_staging_url, environment="staging", approved_host=APPROVED_STAGING_HOST, is_migration=True, staging_migration=False)
+
+    # Missing APPROVED_STAGING_HOST
+    with pytest.raises(DatabaseTargetError, match="APPROVED_STAGING_HOST is not configured"):
+        validate_db_target(valid_staging_url, environment="staging", approved_host=None, is_migration=True, staging_migration=True)
+
+    with pytest.raises(DatabaseTargetError, match="APPROVED_STAGING_HOST is not configured"):
+        validate_db_target(valid_staging_url, environment="staging", approved_host="   ", is_migration=True, staging_migration=True)
+
+def test_staging_migrations_reject_incorrect_hostname():
+    unauthorized_url = "postgresql://user:pass@unauthorized-tenant.neon.tech:5432/neondb?sslmode=require"
+    with pytest.raises(DatabaseTargetError, match="Target host must exactly match the approved staging host"):
+        validate_db_target(unauthorized_url, environment="staging", approved_host=APPROVED_STAGING_HOST, is_migration=True, staging_migration=True)
+
+def test_staging_migrations_reject_incorrect_database_names_and_insecure_tls():
+    # Incorrect database name
+    wrong_db_url = f"postgresql://user:pass@{APPROVED_STAGING_HOST}:5432/otherdb?sslmode=require"
+    with pytest.raises(DatabaseTargetError, match="Unauthorized staging database name"):
+        validate_db_target(wrong_db_url, environment="staging", approved_host=APPROVED_STAGING_HOST, is_migration=True, staging_migration=True)
+
+    # Local development database name in staging migration
+    local_dev_url = f"postgresql://user:pass@{APPROVED_STAGING_HOST}:5432/dependency_analyzer?sslmode=require"
+    with pytest.raises(DatabaseTargetError, match="strictly forbidden in staging"):
+        validate_db_target(local_dev_url, environment="staging", approved_host=APPROVED_STAGING_HOST, is_migration=True, staging_migration=True)
+
+    # Insecure TLS in staging migration
+    no_tls_url = f"postgresql://user:pass@{APPROVED_STAGING_HOST}:5432/neondb"
+    with pytest.raises(DatabaseTargetError, match="Neon staging requires TLS encryption"):
+        validate_db_target(no_tls_url, environment="staging", approved_host=APPROVED_STAGING_HOST, is_migration=True, staging_migration=True)
+
+    disabled_tls_url = f"postgresql://user:pass@{APPROVED_STAGING_HOST}:5432/neondb?sslmode=disable"
+    with pytest.raises(DatabaseTargetError, match="Neon staging requires TLS encryption"):
+        validate_db_target(disabled_tls_url, environment="staging", approved_host=APPROVED_STAGING_HOST, is_migration=True, staging_migration=True)
+
+def test_correctly_authorized_staging_migrations_pass():
+    valid_staging_url = f"postgresql://user:pass@{APPROVED_STAGING_HOST}:5432/neondb?sslmode=require"
+    # Parameter explicit
+    validate_db_target(valid_staging_url, environment="staging", approved_host=APPROVED_STAGING_HOST, is_migration=True, staging_migration=True)
+
+    # Environment variable based
+    with patch.dict(os.environ, {"STAGING_MIGRATION": "1"}):
+        validate_db_target(valid_staging_url, environment="staging", approved_host=APPROVED_STAGING_HOST, is_migration=True)
 
 def test_staging_and_production_reject_both_dev_database_names():
     dev_names = ["dependency_analyzer", "dependency_analyzer_dev"]

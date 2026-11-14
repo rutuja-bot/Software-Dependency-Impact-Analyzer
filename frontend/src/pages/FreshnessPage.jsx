@@ -198,24 +198,24 @@ export default function FreshnessPage() {
       {/* Header Card */}
       <div className="bg-white dark:bg-[#0f1422] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-6 shadow-2xs dark:shadow-card space-y-5 transition-colors duration-200">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 dark:border-white/[0.06] pb-4">
-          <div className="flex items-center space-x-3">
-            <div className="p-2.5 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 rounded-xl border border-cyan-500/20 shadow-glow-sm">
-              <Clock className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+          <div className="flex items-center space-x-3.5">
+            <div className="p-3 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 rounded-xl border border-cyan-500/20 shadow-glow-sm">
+              <Clock className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
-                  Dependency Freshness & LibYear Technical Lag Analysis
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                  LibYear Freshness
                 </h2>
                 {isSimulatedActive && (
-                  <span className="text-[10px] font-mono bg-indigo-50 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 px-2.5 py-0.5 rounded-full font-semibold flex items-center space-x-1">
-                    <Sparkles className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
+                  <span className="text-xs font-mono bg-indigo-50 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 px-2.5 py-0.5 rounded-full font-semibold flex items-center space-x-1">
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                     <span>Baseline Project Data</span>
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Measures the duration (in years) between currently installed releases and latest available package versions on NPM
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                Measure technical lag and release age between installed and latest upstream packages
               </p>
             </div>
           </div>
@@ -229,7 +229,7 @@ export default function FreshnessPage() {
                 whileHover={isAnalyzing || isRetrying || !analysisResult || isSimulatedActive ? {} : { scale: 1.02 }}
                 whileTap={isAnalyzing || isRetrying || !analysisResult || isSimulatedActive ? {} : { scale: 0.98 }}
                 title="Retry failed registry lookups while keeping successful results"
-                className="flex items-center space-x-1.5 text-xs font-semibold bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white px-3.5 py-2.5 rounded-xl transition shadow-2xs duration-150"
+                className="flex items-center space-x-1.5 text-sm font-semibold bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white px-3.5 py-2.5 rounded-xl transition shadow-2xs duration-150"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isRetrying ? 'animate-spin' : ''}`} />
                 <span>{isRetrying ? 'Retrying...' : `Retry Failed (${failedLookupCount})`}</span>
@@ -243,16 +243,16 @@ export default function FreshnessPage() {
               whileHover={isAnalyzing || isRetrying || !analysisResult || isSimulatedActive ? {} : { scale: 1.02 }}
               whileTap={isAnalyzing || isRetrying || !analysisResult || isSimulatedActive ? {} : { scale: 0.98 }}
               title={isSimulatedActive ? 'Reset simulation before running freshness analysis on baseline' : ''}
-              className="flex items-center space-x-2 text-xs font-semibold bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-xl transition shadow-glow-sm duration-200"
+              className="flex items-center space-x-2 text-sm font-semibold bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-xl transition shadow-glow-sm duration-200"
             >
-              <Clock className={`w-3.5 h-3.5 ${isAnalyzing ? 'animate-spin' : ''}`} />
+              <Clock className={`w-4 h-4 ${isAnalyzing ? 'animate-spin' : ''}`} />
               <span>{isAnalyzing ? 'Computing Registry Timestamps...' : 'Analyze LibYear Lag'}</span>
             </motion.button>
           </div>
         </div>
 
         {isSimulatedActive && (
-          <div className="flex items-start space-x-2.5 text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 p-3.5 rounded-xl border border-amber-200 dark:border-amber-500/25">
+          <div className="flex items-start space-x-2.5 text-sm text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 p-3.5 rounded-xl border border-amber-200 dark:border-amber-500/25">
             <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
             <span className="leading-relaxed">
               <strong>What-If Simulation Active:</strong> Displayed freshness metrics correspond to the verified <strong>baseline analysis ({analysisResult?.project_name})</strong>, not temporary in-memory simulation mutations. Scan actions are locked until the simulation is reset.
@@ -261,7 +261,7 @@ export default function FreshnessPage() {
         )}
 
         {failedLookupCount > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 p-3.5 rounded-xl border border-amber-200 dark:border-amber-500/25">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 p-3.5 rounded-xl border border-amber-200 dark:border-amber-500/25">
             <div className="flex items-center space-x-2">
               <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
               <span>
@@ -272,9 +272,9 @@ export default function FreshnessPage() {
               type="button"
               onClick={() => handleRunFreshnessAnalysis(true)}
               disabled={isAnalyzing || isRetrying || isSimulatedActive}
-              className="flex items-center space-x-1.5 text-xs font-semibold bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition shadow-2xs"
+              className="flex items-center space-x-1.5 text-sm font-semibold bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white px-3.5 py-1.5 rounded-xl transition shadow-2xs"
             >
-              <RefreshCw className={`w-3 h-3 ${isRetrying ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${isRetrying ? 'animate-spin' : ''}`} />
               <span>Retry Failed Lookups</span>
             </button>
           </div>
@@ -287,7 +287,7 @@ export default function FreshnessPage() {
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.2, ease: easeSoft }}
-              className="flex items-start space-x-2.5 text-xs text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-500/10 p-3.5 rounded-xl border border-rose-200 dark:border-rose-500/25 overflow-hidden"
+              className="flex items-start space-x-2.5 text-sm text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-500/10 p-3.5 rounded-xl border border-rose-200 dark:border-rose-500/25 overflow-hidden"
             >
               <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500 dark:text-rose-400 mt-0.5" />
               <span>{errorMsg}</span>
@@ -299,55 +299,55 @@ export default function FreshnessPage() {
         {freshnessResult && normalizedRecords.length > 0 && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5 pt-1">
-              <div className="bg-slate-50 dark:bg-[#070b14] p-4 rounded-xl border border-slate-200/80 dark:border-white/[0.05]">
-                <div className="text-[11px] uppercase font-bold tracking-wider text-slate-500">Total Project Lag</div>
-                <div className="text-2xl font-extrabold text-cyan-600 dark:text-cyan-400 font-mono mt-1">
-                  <AnimatedCounter value={totalLibYear} decimals={2} /> <span className="text-xs text-slate-500 dark:text-slate-400 font-sans font-normal">yrs</span>
+              <div className="bg-slate-50 dark:bg-[#070b14] p-4.5 rounded-xl border border-slate-200/80 dark:border-white/[0.05]">
+                <div className="text-xs uppercase font-bold tracking-wider text-slate-500">Total Project Lag</div>
+                <div className="text-3xl font-extrabold text-cyan-600 dark:text-cyan-400 font-mono mt-1">
+                  <AnimatedCounter value={totalLibYear} decimals={2} /> <span className="text-sm text-slate-500 dark:text-slate-400 font-sans font-normal">yrs</span>
                 </div>
-                <div className="text-[10px] text-slate-500 mt-0.5">Cumulative debt</div>
+                <div className="text-xs text-slate-500 mt-0.5">Cumulative debt</div>
               </div>
 
-              <div className="bg-slate-50 dark:bg-[#070b14] p-4 rounded-xl border border-slate-200/80 dark:border-white/[0.05]">
-                <div className="text-[11px] uppercase font-bold tracking-wider text-slate-500">Average Package Lag</div>
-                <div className="text-2xl font-extrabold text-slate-900 dark:text-white font-mono mt-1">
-                  <AnimatedCounter value={avgLibYear} decimals={2} /> <span className="text-xs text-slate-500 dark:text-slate-400 font-sans font-normal">yrs</span>
+              <div className="bg-slate-50 dark:bg-[#070b14] p-4.5 rounded-xl border border-slate-200/80 dark:border-white/[0.05]">
+                <div className="text-xs uppercase font-bold tracking-wider text-slate-500">Average Package Lag</div>
+                <div className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono mt-1">
+                  <AnimatedCounter value={avgLibYear} decimals={2} /> <span className="text-sm text-slate-500 dark:text-slate-400 font-sans font-normal">yrs</span>
                 </div>
-                <div className="text-[10px] text-slate-500 mt-0.5">&divide; {scoredCount} scored pkgs</div>
+                <div className="text-xs text-slate-500 mt-0.5">&divide; {scoredCount} scored pkgs</div>
               </div>
 
-              <div className="bg-slate-50 dark:bg-[#070b14] p-4 rounded-xl border border-slate-200/80 dark:border-white/[0.05]">
-                <div className="text-[11px] uppercase font-bold tracking-wider text-slate-500">Scored Packages</div>
-                <div className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono mt-1">
+              <div className="bg-slate-50 dark:bg-[#070b14] p-4.5 rounded-xl border border-slate-200/80 dark:border-white/[0.05]">
+                <div className="text-xs uppercase font-bold tracking-wider text-slate-500">Scored Packages</div>
+                <div className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono mt-1">
                   <AnimatedCounter value={scoredCount} />
                 </div>
-                <div className="text-[10px] text-emerald-600 dark:text-emerald-500/80 mt-0.5">Verified timestamps</div>
+                <div className="text-xs text-emerald-600 dark:text-emerald-500/80 mt-0.5">Verified timestamps</div>
               </div>
 
-              <div className="bg-slate-50 dark:bg-[#070b14] p-4 rounded-xl border border-slate-200/80 dark:border-white/[0.05]">
-                <div className="text-[11px] uppercase font-bold tracking-wider text-slate-500">Lookup Failed</div>
-                <div className={`text-2xl font-extrabold font-mono mt-1 ${failedLookupCount > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'}`}>
+              <div className="bg-slate-50 dark:bg-[#070b14] p-4.5 rounded-xl border border-slate-200/80 dark:border-white/[0.05]">
+                <div className="text-xs uppercase font-bold tracking-wider text-slate-500">Lookup Failed</div>
+                <div className={`text-3xl font-extrabold font-mono mt-1 ${failedLookupCount > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'}`}>
                   <AnimatedCounter value={failedLookupCount} />
                 </div>
-                <div className="text-[10px] text-slate-500 mt-0.5">Timeout / network err</div>
+                <div className="text-xs text-slate-500 mt-0.5">Timeout / network err</div>
               </div>
 
-              <div className="bg-slate-50 dark:bg-[#070b14] p-4 rounded-xl border border-slate-200/80 dark:border-white/[0.05]">
-                <div className="text-[11px] uppercase font-bold tracking-wider text-slate-500">Unresolved Versions</div>
-                <div className="text-2xl font-extrabold text-amber-600 dark:text-amber-400 font-mono mt-1">
+              <div className="bg-slate-50 dark:bg-[#070b14] p-4.5 rounded-xl border border-slate-200/80 dark:border-white/[0.05]">
+                <div className="text-xs uppercase font-bold tracking-wider text-slate-500">Unresolved Versions</div>
+                <div className="text-3xl font-extrabold text-amber-600 dark:text-amber-400 font-mono mt-1">
                   <AnimatedCounter value={unresolvedVersionCount} />
                 </div>
-                <div className="text-[10px] text-slate-500 mt-0.5">Ranges / missing lock</div>
+                <div className="text-xs text-slate-500 mt-0.5">Ranges / missing lock</div>
               </div>
             </div>
 
             {/* Methodology & Scoring Denominator Explanation */}
-            <div className="bg-slate-50 dark:bg-[#070b14] border border-slate-200 dark:border-white/[0.06] rounded-xl p-3.5 text-xs text-slate-700 dark:text-slate-300 flex items-start space-x-3">
-              <HelpCircle className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0 mt-0.5" />
+            <div className="bg-slate-50 dark:bg-[#070b14] border border-slate-200 dark:border-white/[0.06] rounded-xl p-4 text-sm text-slate-700 dark:text-slate-300 flex items-start space-x-3">
+              <HelpCircle className="w-5 h-5 text-cyan-600 dark:text-cyan-400 shrink-0 mt-0.5" />
               <div className="space-y-0.5">
                 <div className="font-bold text-slate-800 dark:text-slate-200">
                   Scoring Denominator & Methodology
                 </div>
-                <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-[11px]">
+                <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-xs sm:text-[13px]">
                   Average package lag is strictly calculated across the <strong className="text-emerald-600 dark:text-emerald-400">{scoredCount} scored packages</strong> with verified npm registry release dates ({Number(totalLibYear).toFixed(2)} yrs &divide; {scoredCount} = <strong className="text-slate-900 dark:text-white">{Number(avgLibYear).toFixed(2)} yrs/pkg</strong>). Unresolved packages ({unresolvedVersionCount}) and failed lookups ({failedLookupCount}) are excluded from the denominator to prevent artificial lag dilution.
                 </p>
               </div>
@@ -361,7 +361,7 @@ export default function FreshnessPage() {
         <div className="bg-white dark:bg-[#0f1422] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-8 space-y-4 shadow-2xs dark:shadow-card">
           <div className="flex items-center space-x-3">
             <div className="w-5 h-5 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+            <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
               {isAnalyzing ? 'Querying NPM registry release dates to compute technical lag...' : 'Hydrating persisted freshness records for this snapshot...'}
             </span>
           </div>
@@ -377,8 +377,8 @@ export default function FreshnessPage() {
             <Clock className="w-8 h-8" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">No LibYear Freshness Scan Performed Yet</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+            <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">No LibYear Freshness Scan Performed Yet</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
               Click <strong>"Analyze LibYear Lag"</strong> above to query release timestamps from npm registry archives and evaluate dependency aging.
             </p>
           </div>
@@ -386,7 +386,7 @@ export default function FreshnessPage() {
       ) : (
         <div className="space-y-4">
           {/* Controls: Filter Pills & Search Bar */}
-          <div className="bg-white dark:bg-[#0f1422] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-4 space-y-3 shadow-2xs dark:shadow-card">
+          <div className="bg-white dark:bg-[#0f1422] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-4.5 space-y-3 shadow-2xs dark:shadow-card">
             <div className="flex flex-wrap items-center justify-between gap-3">
               {/* Category Filter Pills with animated layout pill */}
               <div className="flex flex-wrap items-center gap-2">
@@ -397,7 +397,7 @@ export default function FreshnessPage() {
                       key={tab.id}
                       type="button"
                       onClick={() => setActiveTab(tab.id)}
-                      className={`relative px-3.5 py-1.5 rounded-xl text-xs font-semibold transition flex items-center space-x-2 ${
+                      className={`relative px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center space-x-2 ${
                         isSelected
                           ? 'text-white shadow-glow-sm'
                           : 'bg-slate-100 dark:bg-[#070b14] hover:bg-slate-200 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/[0.05]'
@@ -411,7 +411,7 @@ export default function FreshnessPage() {
                         />
                       )}
                       <span className="relative z-10">{tab.label}</span>
-                      <span className={`relative z-10 text-[10px] px-1.5 py-0.5 rounded-full font-mono ${
+                      <span className={`relative z-10 text-xs px-2 py-0.5 rounded-full font-mono ${
                         isSelected ? 'bg-black/30 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                       }`}>
                         {tab.count}
@@ -423,19 +423,19 @@ export default function FreshnessPage() {
 
               {/* Search Bar */}
               <div className="relative w-full sm:w-72">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+                <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Filter by package name or version..."
-                  className="w-full bg-slate-50 dark:bg-[#070b14] border border-slate-300 dark:border-white/[0.08] rounded-xl pl-8.5 pr-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500/60 transition"
+                  className="w-full bg-slate-50 dark:bg-[#070b14] border border-slate-300 dark:border-white/[0.08] rounded-xl pl-9 pr-3 py-1.5 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500/60 transition"
                 />
               </div>
             </div>
 
             {isSimulatedActive && (
-              <div className="text-[11px] text-indigo-700 dark:text-indigo-300 flex items-center space-x-1.5 pt-1 border-t border-slate-200/80 dark:border-white/[0.04]">
+              <div className="text-xs sm:text-[13px] text-indigo-700 dark:text-indigo-300 flex items-center space-x-1.5 pt-1 border-t border-slate-200/80 dark:border-white/[0.04]">
                 <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                 <span>Showing baseline manifest packages. Simulation changes are isolated.</span>
               </div>
@@ -445,7 +445,7 @@ export default function FreshnessPage() {
           {/* Package Cards */}
           {filteredRecords.length === 0 ? (
             <div className="bg-white dark:bg-[#0f1422] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-10 text-center text-slate-500 dark:text-slate-400 shadow-2xs dark:shadow-card">
-              <p className="text-xs">No packages match the selected filter or search query.</p>
+              <p className="text-sm">No packages match the selected filter or search query.</p>
             </div>
           ) : (
             <div className="space-y-2.5">
@@ -458,14 +458,14 @@ export default function FreshnessPage() {
                   <motion.div
                     key={pkg.packageName}
                     whileHover={shouldReduceMotion ? {} : { y: -1.5, transition: { duration: 0.15, ease: easeSoft } }}
-                    className="bg-white dark:bg-[#0f1422] hover:bg-slate-50/80 dark:hover:bg-[#141b2e] border border-slate-200/90 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-white/[0.15] rounded-2xl p-4.5 flex flex-wrap items-center justify-between gap-4 shadow-2xs dark:shadow-card transition-colors duration-200"
+                    className="bg-white dark:bg-[#0f1422] hover:bg-slate-50/80 dark:hover:bg-[#141b2e] border border-slate-200/90 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-white/[0.15] rounded-2xl p-4.5 sm:p-5 flex flex-wrap items-center justify-between gap-4 shadow-2xs dark:shadow-card transition-colors duration-200"
                   >
                     <div className="space-y-1.5 min-w-[220px]">
                       <div className="flex items-center space-x-2">
-                        <span className="font-mono text-sm font-bold text-slate-900 dark:text-white">
+                        <span className="font-mono text-base font-bold text-slate-900 dark:text-white">
                           {pkg.packageName}
                         </span>
-                        <span className={`text-xs font-mono px-2 py-0.5 rounded-md border ${
+                        <span className={`text-sm font-mono px-2.5 py-0.5 rounded-md border ${
                           pkg.category === 'scored'
                             ? 'text-cyan-700 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-500/10 border-cyan-200 dark:border-cyan-500/20'
                             : pkg.category === 'lookup_failed'
@@ -475,25 +475,25 @@ export default function FreshnessPage() {
                           v{pkg.installedVersion}
                         </span>
                         {pkg.category === 'lookup_failed' && (
-                          <span className="text-[10px] font-semibold text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-500/20 border border-rose-200 dark:border-rose-500/30 px-2 py-0.5 rounded-full">
+                          <span className="text-xs font-semibold text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-500/20 border border-rose-200 dark:border-rose-500/30 px-2 py-0.5 rounded-full">
                             Lookup Failed
                           </span>
                         )}
                         {pkg.category === 'unresolved_version' && (
-                          <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/30 px-2 py-0.5 rounded-full">
+                          <span className="text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/30 px-2 py-0.5 rounded-full">
                             Unresolved
                           </span>
                         )}
                       </div>
 
                       {pkg.releaseDate ? (
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center space-x-1.5">
-                          <Calendar className="w-3 h-3 text-slate-400 dark:text-slate-500" />
+                        <div className="text-xs sm:text-[13px] text-slate-500 dark:text-slate-400 flex items-center space-x-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                           <span>Release Date: {new Date(pkg.releaseDate).toLocaleDateString()}</span>
                         </div>
                       ) : (
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center space-x-1.5">
-                          <AlertCircle className={`w-3 h-3 ${pkg.category === 'lookup_failed' ? 'text-rose-500 dark:text-rose-400' : 'text-amber-500 dark:text-amber-400'}`} />
+                        <div className="text-xs sm:text-[13px] text-slate-500 dark:text-slate-400 flex items-center space-x-1.5">
+                          <AlertCircle className={`w-3.5 h-3.5 ${pkg.category === 'lookup_failed' ? 'text-rose-500 dark:text-rose-400' : 'text-amber-500 dark:text-amber-400'}`} />
                           <span className={pkg.category === 'lookup_failed' ? 'text-rose-700 dark:text-rose-300' : 'text-slate-600 dark:text-slate-400'}>
                             {pkg.reasonUnscored || (pkg.category === 'lookup_failed' ? 'Registry lookup timed out or failed' : 'Missing concrete installed version in manifest')}
                           </span>
@@ -506,14 +506,14 @@ export default function FreshnessPage() {
                       {pkg.category === 'scored' ? (
                         <div className="text-right space-y-1.5">
                           <div className="flex items-center justify-end space-x-2">
-                            <span className={`text-lg font-bold font-mono ${
+                            <span className={`text-xl font-bold font-mono ${
                               isHighLag ? 'text-rose-600 dark:text-rose-400' : isModLag ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'
                             }`}>
                               {lag.toFixed(2)}
                             </span>
-                            <span className="text-xs text-slate-500 dark:text-slate-400">LibYears</span>
+                            <span className="text-xs sm:text-[13px] text-slate-500 dark:text-slate-400">LibYears</span>
                           </div>
-                          <div className="w-36 bg-slate-200 dark:bg-[#070b14] h-2 rounded-full overflow-hidden border border-slate-300 dark:border-white/[0.08]">
+                          <div className="w-36 bg-slate-200 dark:bg-[#070b14] h-2.5 rounded-full overflow-hidden border border-slate-300 dark:border-white/[0.08]">
                             <motion.div
                               initial={shouldReduceMotion ? false : { width: 0 }}
                               animate={{ width: `${Math.min(100, (lag / 5.0) * 100)}%` }}
@@ -530,9 +530,9 @@ export default function FreshnessPage() {
                             type="button"
                             onClick={() => handleRunFreshnessAnalysis(true)}
                             disabled={isAnalyzing || isRetrying || isSimulatedActive}
-                            className="flex items-center space-x-1 text-xs bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-500/30 px-3 py-1.5 rounded-xl transition"
+                            className="flex items-center space-x-1.5 text-xs font-semibold bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-500/30 px-3.5 py-1.5 rounded-xl transition"
                           >
-                            <RefreshCw className={`w-3 h-3 ${isRetrying ? 'animate-spin' : ''}`} />
+                            <RefreshCw className={`w-3.5 h-3.5 ${isRetrying ? 'animate-spin' : ''}`} />
                             <span>Retry</span>
                           </button>
                         </div>

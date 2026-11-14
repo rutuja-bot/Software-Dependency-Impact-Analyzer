@@ -217,17 +217,9 @@ export default function Layout() {
                 <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-cyan-500 dark:bg-cyan-400"></span>
               </div>
               <div>
-                <div className="flex items-center space-x-2">
-                  <h1 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight group-hover:text-cyan-600 dark:group-hover:text-cyan-300 transition duration-200">
-                    Software Dependency Impact Analyzer
-                  </h1>
-                  <span className="hidden xl:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border border-cyan-500/25">
-                    DSA Graph Engine
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">
-                  Directed Graph Impact Analysis &bull; What-If Simulation &bull; LibYear Lag &bull; OSV Security
-                </p>
+                <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight group-hover:text-cyan-600 dark:group-hover:text-cyan-300 transition duration-200">
+                  Software Dependency Impact Analyzer
+                </h1>
               </div>
             </motion.div>
           </div>
@@ -237,20 +229,20 @@ export default function Layout() {
             <button
               type="button"
               onClick={() => setSearchModalOpen(true)}
-              className="w-full flex items-center justify-between bg-slate-100/80 hover:bg-slate-200/70 dark:bg-[#070b14] dark:hover:bg-slate-900 border border-slate-200 dark:border-white/[0.08] hover:border-cyan-500/40 text-slate-500 dark:text-slate-400 px-3.5 py-1.5 rounded-xl text-xs transition duration-150 group shadow-2xs"
+              className="w-full flex items-center justify-between bg-slate-100/80 hover:bg-slate-200/70 dark:bg-[#070b14] dark:hover:bg-slate-900 border border-slate-200 dark:border-white/[0.08] hover:border-cyan-500/40 text-slate-500 dark:text-slate-400 px-3.5 py-1.5 rounded-xl text-sm transition duration-150 group shadow-2xs"
             >
               <div className="flex items-center space-x-2">
-                <Search className="w-3.5 h-3.5 text-slate-400 group-hover:text-cyan-500 transition" />
+                <Search className="w-4 h-4 text-slate-400 group-hover:text-cyan-500 transition" />
                 <span className="truncate">Quick search packages & views...</span>
               </div>
-              <div className="flex items-center space-x-1 font-mono text-[10px] bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+              <div className="flex items-center space-x-1 font-mono text-xs bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">
                 <span>Ctrl K</span>
               </div>
             </button>
           </div>
 
           {/* Right Header Statuses & User Session */}
-          <div className="flex items-center space-x-3 text-xs shrink-0">
+          <div className="flex items-center space-x-3 text-sm shrink-0">
             {/* Backend Health Status Badge */}
             {backendHealth?.status === 'healthy' ? (
               <div className="hidden sm:flex items-center space-x-2 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25 px-3 py-1.5 rounded-full font-medium shadow-2xs">
@@ -258,11 +250,11 @@ export default function Layout() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
-                <span className="font-mono text-[11px]">API v{backendHealth.version || '0.1.0'}</span>
+                <span className="font-mono text-xs">API v{backendHealth.version || '0.1.0'}</span>
               </div>
             ) : (
               <div className="flex items-center space-x-1.5 bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 px-3 py-1.5 rounded-full font-medium">
-                <XCircle className="w-3.5 h-3.5" />
+                <XCircle className="w-4 h-4" />
                 <span>Backend Disconnected</span>
               </div>
             )}
@@ -270,12 +262,12 @@ export default function Layout() {
             {/* Database Status Badge */}
             {dbStatus?.connected ? (
               <div className="hidden md:flex items-center space-x-2 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/25 px-3 py-1.5 rounded-full font-medium shadow-2xs">
-                <Database className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                <span className="font-mono text-[11px]">{dbStatus.total_projects || 0} Projects Persisted</span>
+                <Database className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <span className="font-mono text-xs">{dbStatus.total_projects || 0} Projects Persisted</span>
               </div>
             ) : (
               <div className="hidden md:flex items-center space-x-1.5 bg-slate-100 text-slate-600 border border-slate-300 dark:bg-slate-800/80 dark:text-slate-400 dark:border-slate-700/60 px-3 py-1.5 rounded-full font-medium">
-                <Cpu className="w-3.5 h-3.5" />
+                <Cpu className="w-4 h-4" />
                 <span>In-Memory Mode</span>
               </div>
             )}
@@ -287,8 +279,8 @@ export default function Layout() {
             {currentUser && (
               <div className="flex items-center space-x-2.5 pl-2 border-l border-slate-200 dark:border-white/[0.08]">
                 <div className="hidden lg:flex flex-col text-right">
-                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">{currentUser.name || currentUser.email}</span>
-                  <span className="text-[10px] text-cyan-600 dark:text-cyan-400 font-mono font-medium">{currentUser.role || 'Analyst'}</span>
+                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">{currentUser.name || currentUser.email}</span>
+                  <span className="text-xs text-cyan-600 dark:text-cyan-400 font-mono font-medium">{currentUser.role || 'Analyst'}</span>
                 </div>
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-xs ring-1 ring-white/10">
                   {(currentUser.name || currentUser.email || 'A').charAt(0).toUpperCase()}
@@ -298,42 +290,13 @@ export default function Layout() {
                   onClick={handleLogout}
                   whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}
                   title="Sign out of analyst workspace"
-                  className="flex items-center space-x-1.5 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-700 border border-slate-300/80 hover:border-rose-300 dark:bg-slate-800/80 dark:hover:bg-rose-950/40 dark:hover:text-rose-300 dark:text-slate-300 dark:border-slate-700/80 dark:hover:border-rose-700/60 px-2.5 py-1.5 rounded-xl transition text-xs shadow-2xs"
+                  className="flex items-center space-x-1.5 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-700 border border-slate-300/80 hover:border-rose-300 dark:bg-slate-800/80 dark:hover:bg-rose-950/40 dark:hover:text-rose-300 dark:text-slate-300 dark:border-slate-700/80 dark:hover:border-rose-700/60 px-2.5 py-1.5 rounded-xl transition text-sm shadow-2xs"
                 >
-                  <LogOut className="w-3.5 h-3.5" />
+                  <LogOut className="w-4 h-4" />
                   <span className="hidden sm:inline">Sign Out</span>
                 </motion.button>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Breadcrumb / Sub-bar */}
-        <div className="bg-slate-100/70 dark:bg-[#0a0e19] border-t border-slate-200/70 dark:border-white/[0.04] px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 transition-colors duration-200">
-          <div className="flex items-center space-x-2">
-            <span className="text-slate-500 font-mono text-[11px]">Workspace</span>
-            <ChevronRight className="w-3 h-3 text-slate-400 dark:text-slate-600" />
-            <span className="text-slate-800 dark:text-slate-200 font-semibold">{pageTitle}</span>
-            {analysisResult && (
-              <>
-                <ChevronRight className="w-3 h-3 text-slate-400 dark:text-slate-600" />
-                <span className="font-mono text-cyan-700 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/40 px-2.5 py-0.5 rounded-md border border-cyan-200 dark:border-cyan-800/40 font-semibold text-[11px]">
-                  {analysisResult.project_name} @ v{analysisResult.project_version}
-                </span>
-              </>
-            )}
-          </div>
-
-          {/* Graph Notation - Responsive Compact Badge on Mobile, Full on Desktop */}
-          <div className="flex items-center space-x-2 text-[11px] font-mono text-slate-500 dark:text-slate-400 ml-auto shrink-0">
-            <span className="hidden sm:inline">Graph Notation:</span>
-            <span
-              className="text-cyan-700 dark:text-cyan-400 font-semibold bg-white dark:bg-slate-900/90 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800 shadow-2xs text-[10px] sm:text-[11px]"
-              title="Directed Graph Notation: Package A depends on Package B"
-            >
-              <span className="hidden sm:inline">A &rarr; B (A depends on B)</span>
-              <span className="sm:hidden font-mono">A &rarr; B</span>
-            </span>
           </div>
         </div>
       </header>
@@ -374,7 +337,7 @@ export default function Layout() {
             {/* Sidebar Collapse Toggle (Desktop Only) */}
             <div className="hidden lg:flex items-center justify-between pb-1 border-b border-slate-200/80 dark:border-white/[0.06]">
               {!sidebarCollapsed && (
-                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500">
+                <span className="text-xs uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500">
                   Navigation
                 </span>
               )}
@@ -392,27 +355,27 @@ export default function Layout() {
             <div className={`relative overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100/60 dark:from-[#111726] dark:to-[#0c111e] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-3.5 space-y-2 shadow-2xs dark:shadow-card ${
               sidebarCollapsed ? 'block lg:hidden' : 'block'
             }`}>
-              <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold">
+              <div className="flex items-center justify-between text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold">
                 <span className="flex items-center space-x-1.5 text-cyan-600 dark:text-cyan-400">
                   <GitCommit className="w-3.5 h-3.5" />
                   <span>Inspected Project</span>
                 </span>
-                <span className="font-mono text-[9px] bg-white dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                <span className="font-mono text-xs bg-white dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">
                   NPM
                 </span>
               </div>
-              <div className="font-bold text-slate-900 dark:text-white text-xs truncate font-mono">
+              <div className="font-bold text-slate-900 dark:text-white text-sm truncate font-mono">
                 {analysisResult?.project_name || 'No Project Loaded'}
               </div>
               {analysisResult ? (
-                <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-1.5 border-t border-slate-200/80 dark:border-white/[0.06]">
+                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-1.5 border-t border-slate-200/80 dark:border-white/[0.06]">
                   <span className="font-mono text-slate-700 dark:text-slate-300">v{analysisResult.project_version}</span>
                   <span className="text-cyan-700 dark:text-cyan-400 font-mono font-semibold bg-cyan-50 dark:bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-200 dark:border-cyan-800/40">
                     {displayStats?.total_packages || 0} pkgs
                   </span>
                 </div>
               ) : (
-                <p className="text-[10px] text-slate-500 italic">
+                <p className="text-xs text-slate-500 italic">
                   Upload manifest to start analysis.
                 </p>
               )}
@@ -421,7 +384,7 @@ export default function Layout() {
             {sidebarCollapsed && (
               <div className="hidden lg:flex flex-col items-center justify-center p-2 rounded-xl bg-slate-50 dark:bg-[#111726] border border-slate-200 dark:border-white/[0.06] text-center" title={analysisResult?.project_name || 'No Project Loaded'}>
                 <GitCommit className="w-4 h-4 text-cyan-600 dark:text-cyan-400 mb-1" />
-                <span className="text-[9px] font-mono text-slate-600 dark:text-slate-300 truncate max-w-[50px]">
+                <span className="text-[10px] font-mono text-slate-600 dark:text-slate-300 truncate max-w-[50px]">
                   {analysisResult?.project_name ? analysisResult.project_name.slice(0, 5) + '..' : 'Empty'}
                 </span>
               </div>
@@ -431,7 +394,7 @@ export default function Layout() {
             <nav className="space-y-4">
               {navSections.map((section, sIdx) => (
                 <div key={sIdx} className="space-y-1">
-                  <div className={`text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 pb-1 ${
+                  <div className={`text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 pb-1 ${
                     sidebarCollapsed ? 'block lg:hidden' : 'block'
                   }`}>
                     {section.title}
@@ -447,7 +410,7 @@ export default function Layout() {
                         title={sidebarCollapsed ? item.label : undefined}
                         className={`relative group flex items-center ${
                           sidebarCollapsed ? 'justify-between lg:justify-center px-3 py-2.5 lg:p-2.5' : 'justify-between px-3 py-2.5'
-                        } rounded-xl text-xs font-medium transition-colors duration-150 ${
+                        } rounded-xl text-sm font-medium transition-colors duration-150 ${
                           isActive
                             ? 'text-cyan-800 dark:text-cyan-300 font-semibold'
                             : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-slate-800/40'
@@ -470,7 +433,7 @@ export default function Layout() {
                         </div>
 
                         {item.badge && (
-                          <span className={`relative z-10 text-[10px] font-mono px-2 py-0.5 rounded-md font-semibold border ${item.badgeColor} ${
+                          <span className={`relative z-10 text-xs font-mono px-2 py-0.5 rounded-md font-semibold border ${item.badgeColor} ${
                             sidebarCollapsed ? 'inline lg:hidden' : 'inline'
                           }`}>
                             {item.badge}
@@ -485,34 +448,19 @@ export default function Layout() {
           </div>
 
           {/* Sidebar Footer Metadata */}
-          <div className="pt-3 border-t border-slate-200/80 dark:border-white/[0.06] space-y-2 text-[11px] text-slate-500">
-            {isSimulatedActive && (
+          {isSimulatedActive && (
+            <div className="pt-3 border-t border-slate-200/80 dark:border-white/[0.06] text-xs">
               <div className={`flex items-center ${
                 sidebarCollapsed ? 'space-x-2 p-2.5 lg:justify-center lg:p-2' : 'space-x-2 p-2.5'
               } text-indigo-700 dark:text-indigo-300 font-semibold bg-indigo-50 dark:bg-indigo-500/10 rounded-xl border border-indigo-200 dark:border-indigo-500/30 shadow-2xs animate-pulse`}>
                 <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                <div className={`text-[11px] leading-tight ${sidebarCollapsed ? 'block lg:hidden' : 'block'}`}>
+                <div className={`text-xs leading-tight ${sidebarCollapsed ? 'block lg:hidden' : 'block'}`}>
                   <div>Simulation Active</div>
-                  <span className="text-[10px] text-indigo-500 dark:text-indigo-400 font-normal">Graph reflects in-memory diff</span>
+                  <span className="text-[11px] text-indigo-500 dark:text-indigo-400 font-normal">Graph reflects in-memory diff</span>
                 </div>
               </div>
-            )}
-
-            {/* Graph Notation Card in Drawer */}
-            <div className={`bg-slate-50 dark:bg-[#101625] p-2.5 rounded-xl border border-slate-200 dark:border-white/[0.06] space-y-1 ${
-              sidebarCollapsed ? 'block lg:hidden' : 'block'
-            }`}>
-              <span className="text-slate-500 dark:text-slate-400 block font-semibold text-[10px] uppercase tracking-wider">Graph Notation</span>
-              <span className="font-mono text-cyan-700 dark:text-cyan-400 text-[11px] font-medium">A &rarr; B (A depends on B)</span>
             </div>
-
-            <div className={`bg-slate-50 dark:bg-[#101625] p-2.5 rounded-xl border border-slate-200 dark:border-white/[0.06] space-y-1 ${
-              sidebarCollapsed ? 'block lg:hidden' : 'block'
-            }`}>
-              <span className="text-slate-500 dark:text-slate-400 block font-semibold text-[10px] uppercase tracking-wider">Algorithm Spec</span>
-              <span className="font-mono text-cyan-700 dark:text-cyan-400 text-[11px]">Tarjan SCC &bull; Kahn Topo &bull; BFS Blast</span>
-            </div>
-          </div>
+          )}
         </aside>
 
         {/* Central Content Area */}
@@ -548,20 +496,16 @@ export default function Layout() {
         </main>
       </div>
 
-      {/* Global Application Developer Status Ribbon Footer */}
-      <footer className="border-t border-slate-200/80 dark:border-white/[0.06] bg-white dark:bg-[#0b0f1a] py-2.5 px-6 text-xs text-slate-500 dark:text-slate-400 flex flex-wrap items-center justify-between gap-2 transition-colors duration-200">
-        <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-1.5 font-medium text-slate-700 dark:text-slate-300">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span>Software Dependency Impact Analyzer</span>
-          </div>
-          <span>&bull;</span>
-          <span className="font-mono text-[11px] text-slate-500">Engine v{backendHealth?.version || '0.1.0'}</span>
+      {/* Global Application Footer */}
+      <footer className="border-t border-slate-200/80 dark:border-white/[0.06] bg-white dark:bg-[#0b0f1a] py-3 px-6 text-sm text-slate-500 dark:text-slate-400 flex flex-wrap items-center justify-between gap-2 transition-colors duration-200">
+        <div className="flex items-center space-x-2.5 font-medium text-slate-700 dark:text-slate-300">
+          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+          <span>Software Dependency Impact Analyzer</span>
+          <span className="text-slate-400 dark:text-slate-600">&bull;</span>
+          <span className="font-mono text-xs text-slate-500">v{backendHealth?.version || '0.1.0'}</span>
         </div>
-        <div className="flex items-center space-x-3 text-[11px] font-mono text-slate-500">
-          <span>{displayStats ? `${displayStats.total_packages} Nodes in Graph` : '0 Nodes'}</span>
-          <span>&bull;</span>
-          <span>FastAPI + Cytoscape + React 18</span>
+        <div className="text-xs font-mono text-slate-500">
+          {displayStats ? `${displayStats.total_packages} Packages in Active Graph` : 'No Active Graph'}
         </div>
       </footer>
     </div>

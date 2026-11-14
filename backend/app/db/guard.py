@@ -35,8 +35,7 @@ def resolve_migration_target(
         if conflicting:
             raise RuntimeError(
                 f"Alembic migration stopped: Configuration conflict detected. "
-                f"Staging settings ({', '.join(conflicting)}) must not be set in a production environment. "
-                f"Unset {', '.join(conflicting)} to proceed with production migrations."
+                f"Staging settings ({', '.join(conflicting)}) must not be set in a production environment."
             )
         return "production"
     elif env_name == "staging" or staging_migration or bool(approved_host and approved_host.strip()):
@@ -47,7 +46,8 @@ def validate_db_target(
     url: Optional[str],
     environment: Optional[str] = None,
     approved_host: Optional[str] = None,
-    is_migration: bool = False
+    is_migration: bool = False,
+    staging_migration: Optional[bool] = None
 ) -> None:
     """
     Validates a database connection URL against deployment safety rules.
@@ -57,19 +57,22 @@ def validate_db_target(
     1. Rejects None, empty, or whitespace-only URLs.
     2. Rejects placeholder URLs (e.g. alembic.ini defaults).
     3. Rejects malformed connection strings.
-    4. In staging mode:
+    4. Rejects SQLite in production application connections and migrations.
+       Preserves SQLite for local development and unit tests.
+    5. In staging mode:
+       - Requires STAGING_MIGRATION=true for staging migrations.
        - Rejects 'dependency_analyzer_dev', 'dependency_analyzer', or localhost/loopback.
        - Requires exact approved staging hostname (not substring matching).
        - Requires database name to strictly equal 'neondb'.
        - Requires secure TLS configuration (e.g. sslmode=require, verify-ca, verify-full).
-    5. In production mode:
+    6. In production mode:
+       - Strictly prohibits database migrations (migrations only permitted against authorized staging).
        - Rejects 'dependency_analyzer_dev', 'dependency_analyzer', and localhost/loopback.
        - Rejects conflicting staging configuration (APPROVED_STAGING_HOST, STAGING_MIGRATION).
        - Requires secure TLS configuration (sslmode=require, verify-ca, verify-full).
-    6. In development mode:
+    7. In development mode:
        - Permits local PostgreSQL or SQLite while still forbidding placeholder URLs.
-    7. Staging and production migrations:
-       - Never permitted to target local development database or localhost.
+       - Local development migrations remain separate from staging authorization.
     """
     if not url or not url.strip():
         raise DatabaseTargetError(
@@ -102,9 +105,14 @@ def validate_db_target(
 
     env_lower = (environment or os.getenv("ENVIRONMENT", "development")).lower()
 
-    # Allow in-memory sqlite for unit tests
+    # Reject SQLite in production application connections and migrations; preserve for dev and tests
     if parsed.scheme.startswith("sqlite"):
-        if env_lower in ("staging", "production") and is_migration:
+        if env_lower == "production":
+            raise DatabaseTargetError(
+                "SQLite is strictly prohibited in production application connections. "
+                "Production requires a secure PostgreSQL database connection."
+            )
+        if env_lower == "staging" and is_migration:
             raise DatabaseTargetError("SQLite is not supported for staging/production migrations.")
         return
 
@@ -123,9 +131,20 @@ def validate_db_target(
     if not dbname:
         raise DatabaseTargetError("Malformed database URL: missing database name.")
 
+    # Block production database migrations
+    if is_migration and env_lower == "production":
+        raise DatabaseTargetError(
+            "Production database migrations are strictly prohibited. "
+            "Under current deployment policy, migrations may only be executed against an authorized staging database."
+        )
+
     # Guard against conflicting staging configuration in production
     if env_lower == "production":
-        has_staging_migration = os.getenv("STAGING_MIGRATION", "").lower() in ("1", "true", "yes")
+        has_staging_migration = (
+            staging_migration
+            if staging_migration is not None
+            else (os.getenv("STAGING_MIGRATION", "").lower() in ("1", "true", "yes"))
+        )
         has_approved_host = bool(approved_host and approved_host.strip())
         if has_staging_migration or has_approved_host:
             conflicts = []
@@ -137,14 +156,24 @@ def validate_db_target(
                 f"Configuration conflict: Staging settings ({', '.join(conflicts)}) cannot be set in a production environment."
             )
 
+    is_staging_migration = (
+        staging_migration
+        if staging_migration is not None
+        else (os.getenv("STAGING_MIGRATION", "").lower() in ("1", "true", "yes"))
+    )
     staging_flag = (
         env_lower == "staging"
-        or os.getenv("STAGING_MIGRATION", "").lower() in ("1", "true", "yes")
+        or is_staging_migration
         or (is_migration and approved_host is not None)
     )
 
     # 1. Staging Targeting Guard
     if staging_flag:
+        if is_migration and not is_staging_migration:
+            raise DatabaseTargetError(
+                "Staging migration authorization failed: STAGING_MIGRATION=true is required to execute migrations against staging."
+            )
+
         if not approved_host or not approved_host.strip():
             raise DatabaseTargetError(
                 "Staging database safety check failed: APPROVED_STAGING_HOST is not configured. "

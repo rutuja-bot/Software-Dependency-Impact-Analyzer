@@ -46,11 +46,18 @@ def get_url():
         staging_migration=staging_migration
     )
 
+    if target_env == "production":
+        raise RuntimeError(
+            "Alembic migration stopped: Production database migrations are strictly prohibited. "
+            "Under the current deployment policy, migrations may only be executed against an authorized staging database."
+        )
+
     validate_db_target(
         url=url,
         environment=target_env,
         approved_host=approved_host,
-        is_migration=True
+        is_migration=True,
+        staging_migration=staging_migration
     )
     return url
 

@@ -50,18 +50,18 @@ export default function SimulationPage() {
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="bg-white dark:bg-[#0f1422] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-5 shadow-2xs dark:shadow-card transition-colors duration-200">
+      <div className="bg-white dark:bg-[#0f1422] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-5 sm:p-6 shadow-2xs dark:shadow-card transition-colors duration-200">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center space-x-3">
-            <div className="p-2.5 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl border border-indigo-500/20 shadow-sm">
-              <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+          <div className="flex items-center space-x-3.5">
+            <div className="p-3 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl border border-indigo-500/20 shadow-sm">
+              <Sparkles className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
-                In-Memory "What-If" Dependency Change Simulator
+              <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                What-If Change Simulator
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Non-destructive modification sandbox: simulate adding, upgrading, or removing packages to evaluate downstream blast radius
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                Simulate adding, upgrading, or removing packages in-memory to evaluate impact
               </p>
             </div>
           </div>
@@ -71,9 +71,9 @@ export default function SimulationPage() {
               onClick={handleResetSimulation}
               whileHover={shouldReduceMotion ? {} : { scale: 1.02 }}
               whileTap={shouldReduceMotion ? {} : { scale: 0.97 }}
-              className="flex items-center space-x-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/90 dark:hover:bg-slate-700/90 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold px-4 py-2 rounded-xl transition shadow-2xs duration-150"
+              className="flex items-center space-x-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/90 dark:hover:bg-slate-700/90 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-sm font-semibold px-4.5 py-2.5 rounded-xl transition shadow-2xs duration-150"
             >
-              <RotateCcw className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+              <RotateCcw className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
               <span>Reset to Baseline Graph</span>
             </motion.button>
           )}
@@ -92,30 +92,29 @@ export default function SimulationPage() {
       />
 
       {/* Visual Simulation Graph Stage */}
-      <div className="bg-white dark:bg-[#0f1422] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-5 shadow-2xs dark:shadow-card space-y-4 transition-colors duration-200">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 dark:border-white/[0.06] pb-3">
+      <div className="bg-white dark:bg-[#0f1422] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-5 sm:p-6 shadow-2xs dark:shadow-card space-y-4 transition-colors duration-200">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 dark:border-white/[0.06] pb-3.5">
           <div className="flex items-center space-x-2.5">
             <div className="p-2 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 rounded-xl border border-cyan-500/20">
               <Network className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+              <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
                 {isSimulatedActive ? 'Simulated Graph with Change Diff Overlays' : 'Current Baseline Dependency Graph'}
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
                 {isSimulatedActive ? 'Previewing simulated topology delta' : 'Unchanged baseline state'}
               </p>
             </div>
           </div>
-          <div className="text-xs font-mono text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-900/80 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800">
+          <div className="text-sm font-mono text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800">
             {displayNodes.length} nodes &bull; {displayEdges.length} edges
           </div>
         </div>
 
-        {/* Legend for Simulation Diffs */}
         {isSimulatedActive && (
-          <div className="flex flex-wrap items-center gap-4 text-[11px] bg-slate-50 dark:bg-[#070b14] p-3 rounded-xl border border-slate-200 dark:border-white/[0.06]">
-            <span className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px]">Diff Indicators:</span>
+          <div className="flex flex-wrap items-center gap-4 text-xs sm:text-[13px] bg-slate-50 dark:bg-[#070b14] p-3.5 rounded-xl border border-slate-200 dark:border-white/[0.06]">
+            <span className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-xs">Diff Indicators:</span>
             <div className="flex items-center space-x-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-glow-emerald"></span>
               <span className="text-emerald-700 dark:text-emerald-300 font-semibold">+ Added Node</span>
@@ -142,8 +141,8 @@ export default function SimulationPage() {
         />
 
         {/* Non-destructive Isolation Notice */}
-        <div className="bg-slate-50 dark:bg-[#070b14] border border-slate-200 dark:border-white/[0.06] rounded-xl p-3.5 text-xs text-slate-600 dark:text-slate-400 flex items-start space-x-3">
-          <ShieldCheck className="w-4 h-4 text-cyan-500 dark:text-cyan-400 shrink-0 mt-0.5" />
+        <div className="bg-slate-50 dark:bg-[#070b14] border border-slate-200 dark:border-white/[0.06] rounded-xl p-4 text-sm text-slate-600 dark:text-slate-400 flex items-start space-x-3">
+          <ShieldCheck className="w-5 h-5 text-cyan-500 dark:text-cyan-400 shrink-0 mt-0.5" />
           <div className="space-y-0.5 leading-relaxed">
             <span className="font-bold text-slate-800 dark:text-slate-200">Non-Destructive In-Memory Isolation:</span> What-If simulations calculate topological cycles, component connectivity, and BFS blast-radius deltas completely in memory. Baseline PostgreSQL records and immutable historical snapshots remain protected and unmodified.
           </div>

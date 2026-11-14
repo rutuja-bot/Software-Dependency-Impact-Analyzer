@@ -92,12 +92,9 @@ export default function LoginPage() {
               <Network className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
             </div>
             <div>
-              <h1 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight">
+              <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
                 Software Dependency Impact Analyzer
               </h1>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">
-                Graph-Based Change Impact & What-If Simulation Engine
-              </p>
             </div>
           </div>
 
@@ -109,7 +106,7 @@ export default function LoginPage() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
-                <span className="font-mono text-[11px]">API Connected</span>
+                <span className="font-mono text-xs">API Connected</span>
               </div>
             ) : (
               <div className="flex items-center space-x-1.5 bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30 px-3 py-1.5 rounded-full font-medium">
@@ -120,7 +117,7 @@ export default function LoginPage() {
             {dbStatus?.connected && (
               <div className="hidden sm:flex items-center space-x-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/25 px-3 py-1.5 rounded-full font-medium shadow-2xs">
                 <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
-                <span className="font-mono text-[11px]">PostgreSQL Active</span>
+                <span className="font-mono text-xs">PostgreSQL Active</span>
               </div>
             )}
             <ThemeToggle />
@@ -147,10 +144,10 @@ export default function LoginPage() {
               <div className="inline-flex p-3 bg-gradient-to-br from-cyan-500/20 to-teal-500/10 text-cyan-600 dark:text-cyan-400 rounded-2xl border border-cyan-500/30 shadow-glow-sm">
                 <Network className="w-8 h-8 text-cyan-600 dark:text-cyan-400" />
               </div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                 {mode === 'login' ? 'Sign In to Workspace' : 'Create Local Session'}
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-xs mx-auto">
+              <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 leading-relaxed max-w-xs mx-auto">
                 Explore dependency trees, blast radius graphs, OSV advisories, and LibYear metrics
               </p>
             </div>
@@ -164,7 +161,7 @@ export default function LoginPage() {
                     key={tabMode}
                     type="button"
                     onClick={() => { setMode(tabMode); setFormError(null); setFormSuccess(null); }}
-                    className={`relative flex-1 text-xs font-bold py-2 rounded-xl transition duration-150 ${
+                    className={`relative flex-1 text-sm font-bold py-2.5 rounded-xl transition duration-150 ${
                       isSelected
                         ? 'text-white'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
@@ -191,7 +188,7 @@ export default function LoginPage() {
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.2, ease: easeSoft }}
-                  className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 p-3.5 rounded-xl flex items-start space-x-2.5 text-xs overflow-hidden"
+                  className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 p-3.5 rounded-xl flex items-start space-x-2.5 text-sm overflow-hidden"
                 >
                   <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500 dark:text-rose-400 mt-0.5" />
                   <span>{formError}</span>
@@ -203,7 +200,7 @@ export default function LoginPage() {
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.2, ease: easeSoft }}
-                  className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300 p-3.5 rounded-xl flex items-start space-x-2.5 text-xs overflow-hidden"
+                  className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300 p-3.5 rounded-xl flex items-start space-x-2.5 text-sm overflow-hidden"
                 >
                   <CheckCircle className="w-4 h-4 shrink-0 text-emerald-500 dark:text-emerald-400 mt-0.5" />
                   <span>{formSuccess}</span>
@@ -215,7 +212,7 @@ export default function LoginPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               {mode === 'signup' && (
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center space-x-1.5">
+                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center space-x-1.5">
                     <User className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                     <span>Display Name (Optional)</span>
                   </label>
@@ -224,13 +221,13 @@ export default function LoginPage() {
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                     placeholder="e.g. Lead Analyst"
-                    className="w-full bg-slate-50 dark:bg-[#070b14] border border-slate-300 dark:border-white/[0.08] rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500/60 transition"
+                    className="w-full bg-slate-50 dark:bg-[#070b14] border border-slate-300 dark:border-white/[0.08] rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500/60 transition"
                   />
                 </div>
               )}
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center space-x-1.5">
+                <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center space-x-1.5">
                   <Mail className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                   <span>Email Address</span>
                 </label>
@@ -239,13 +236,13 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="analyst@domain.com"
-                  className="w-full bg-slate-50 dark:bg-[#070b14] border border-slate-300 dark:border-white/[0.08] rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500/60 transition"
+                  className="w-full bg-slate-50 dark:bg-[#070b14] border border-slate-300 dark:border-white/[0.08] rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500/60 transition"
                   autoComplete="email"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center space-x-1.5">
+                <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center space-x-1.5">
                   <Lock className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                   <span>Password</span>
                 </label>
@@ -254,14 +251,14 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full bg-slate-50 dark:bg-[#070b14] border border-slate-300 dark:border-white/[0.08] rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500/60 transition"
+                  className="w-full bg-slate-50 dark:bg-[#070b14] border border-slate-300 dark:border-white/[0.08] rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500/60 transition"
                   autoComplete="current-password"
                 />
               </div>
 
               {mode === 'signup' && (
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center space-x-1.5">
+                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center space-x-1.5">
                     <Lock className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                     <span>Confirm Password</span>
                   </label>
@@ -270,7 +267,7 @@ export default function LoginPage() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full bg-slate-50 dark:bg-[#070b14] border border-slate-300 dark:border-white/[0.08] rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500/60 transition"
+                    className="w-full bg-slate-50 dark:bg-[#070b14] border border-slate-300 dark:border-white/[0.08] rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500/60 transition"
                     autoComplete="new-password"
                   />
                 </div>
@@ -281,7 +278,7 @@ export default function LoginPage() {
                 type="submit"
                 whileHover={shouldReduceMotion ? {} : { scale: 1.02 }}
                 whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
-                className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white font-bold py-3 px-4 rounded-xl shadow-glow-sm transition text-xs duration-200"
+                className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white font-bold py-3.5 px-4 rounded-xl shadow-glow-sm transition text-base duration-200"
               >
                 <span>{mode === 'login' ? 'Sign In to Workspace' : 'Initialize Workspace'}</span>
                 <ArrowRight className="w-4 h-4" />
@@ -295,20 +292,20 @@ export default function LoginPage() {
                 onClick={handleDemoSignIn}
                 whileHover={shouldReduceMotion ? {} : { scale: 1.015 }}
                 whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
-                className="w-full flex items-center justify-between bg-slate-50 hover:bg-slate-100 dark:bg-[#070b14] dark:hover:bg-slate-800/60 border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white py-2.5 px-3.5 rounded-xl text-xs font-semibold transition duration-150"
+                className="w-full flex items-center justify-between bg-slate-50 hover:bg-slate-100 dark:bg-[#070b14] dark:hover:bg-slate-800/60 border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white py-2.5 px-4 rounded-xl text-sm font-semibold transition duration-150"
               >
                 <div className="flex items-center space-x-2">
                   <Zap className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                   <span>Launch as Demo Analyst</span>
                 </div>
-                <span className="text-[10px] text-cyan-700 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-200 dark:border-cyan-500/20 font-mono">
+                <span className="text-xs text-cyan-700 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-200 dark:border-cyan-500/20 font-mono">
                   1-Click Access
                 </span>
               </motion.button>
             </div>
 
             {/* Architecture Transparency Notice */}
-            <div className="bg-slate-50 dark:bg-[#070b14] border border-slate-200 dark:border-white/[0.06] rounded-2xl p-3.5 text-[11px] text-slate-600 dark:text-slate-400 space-y-1">
+            <div className="bg-slate-50 dark:bg-[#070b14] border border-slate-200 dark:border-white/[0.06] rounded-2xl p-4 text-xs sm:text-[13px] text-slate-600 dark:text-slate-400 space-y-1">
               <div className="flex items-center space-x-1.5 text-slate-800 dark:text-slate-300 font-bold">
                 <Info className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                 <span>Client Session Architecture</span>
@@ -323,7 +320,7 @@ export default function LoginPage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-200/80 dark:border-white/[0.06] bg-white dark:bg-[#0b0f1a] py-4 text-center text-xs text-slate-500 transition-colors duration-200">
+      <footer className="border-t border-slate-200/80 dark:border-white/[0.06] bg-white dark:bg-[#0b0f1a] py-4.5 text-center text-xs sm:text-[13px] text-slate-500 transition-colors duration-200">
         Software Dependency Impact Analyzer &bull; B.Tech Computer Science Project &bull; Directed Graph & DSA Architecture
       </footer>
     </div>

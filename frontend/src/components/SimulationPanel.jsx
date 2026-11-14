@@ -85,9 +85,9 @@ export default function SimulationPanel({
             <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">In-Memory "What-If" Change Simulator</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Non-destructive graph modification preview: evaluate topological and blast-radius impact
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">Simulation Controls</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Configure package modifications and evaluate topological impact
             </p>
           </div>
         </div>
@@ -98,7 +98,7 @@ export default function SimulationPanel({
             onClick={onResetSimulation}
             whileHover={shouldReduceMotion ? {} : { scale: 1.02 }}
             whileTap={shouldReduceMotion ? {} : { scale: 0.97 }}
-            className="flex items-center space-x-1.5 text-xs font-semibold text-rose-700 dark:text-rose-300 hover:text-white bg-rose-50 hover:bg-rose-600 dark:bg-rose-500/15 dark:hover:bg-rose-600/30 px-3.5 py-1.5 rounded-xl border border-rose-200 dark:border-rose-500/30 transition shadow-2xs duration-150"
+            className="flex items-center space-x-1.5 text-sm font-semibold text-rose-700 dark:text-rose-300 hover:text-white bg-rose-50 hover:bg-rose-600 dark:bg-rose-500/15 dark:hover:bg-rose-600/30 px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-500/30 transition shadow-2xs duration-150"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Discard & Return to Baseline</span>
@@ -114,7 +114,7 @@ export default function SimulationPanel({
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2, ease: easeSoft }}
-            className="flex items-start space-x-2.5 text-xs text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-500/10 p-3.5 rounded-xl border border-rose-200 dark:border-rose-500/25 overflow-hidden"
+            className="flex items-start space-x-2.5 text-sm text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-500/10 p-3.5 rounded-xl border border-rose-200 dark:border-rose-500/25 overflow-hidden"
           >
             <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500 dark:text-rose-400 mt-0.5" />
             <span>{errorMsg}</span>
@@ -133,7 +133,7 @@ export default function SimulationPanel({
                 key={tab.id}
                 type="button"
                 onClick={() => setOperation(tab.id)}
-                className={`relative flex items-center justify-center space-x-2 py-2.5 px-3 rounded-xl text-xs font-bold transition duration-150 ${
+                className={`relative flex items-center justify-center space-x-2 py-2.5 px-3 rounded-xl text-sm font-bold transition duration-150 ${
                   isSelected
                     ? `${tab.activeClass} shadow-2xs font-bold`
                     : 'bg-slate-50 dark:bg-[#070b14] border border-slate-200 dark:border-white/[0.06] text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/40'
@@ -156,11 +156,11 @@ export default function SimulationPanel({
         </div>
 
         {/* Dynamic Inputs based on operation */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
 
           {/* Target Package */}
           <div className="sm:col-span-2 space-y-1.5">
-            <label className="block text-slate-800 dark:text-slate-200 font-bold">
+            <label className="block text-slate-800 dark:text-slate-200 font-bold text-sm">
               Target Package <span className="text-rose-500 dark:text-rose-400">*</span>
             </label>
             {operation === 'add' ? (
@@ -169,13 +169,13 @@ export default function SimulationPanel({
                 value={targetPackage}
                 onChange={(e) => setTargetPackage(e.target.value)}
                 placeholder="e.g. redis, lodash, axios"
-                className="w-full bg-slate-50 dark:bg-[#070b14] border border-slate-300 dark:border-white/[0.08] rounded-xl px-3.5 py-2 text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-indigo-500/60 font-mono transition"
+                className="w-full bg-slate-50 dark:bg-[#070b14] border border-slate-300 dark:border-white/[0.08] rounded-xl px-3.5 py-2 text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-indigo-500/60 font-mono text-sm transition"
               />
             ) : (
               <select
                 value={targetPackage}
                 onChange={(e) => setTargetPackage(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-[#070b14] border border-slate-300 dark:border-white/[0.08] rounded-xl px-3.5 py-2 text-slate-900 dark:text-slate-200 focus:outline-none focus:border-indigo-500/60 font-mono transition cursor-pointer"
+                className="w-full bg-slate-50 dark:bg-[#070b14] border border-slate-300 dark:border-white/[0.08] rounded-xl px-3.5 py-2 text-slate-900 dark:text-slate-200 focus:outline-none focus:border-indigo-500/60 font-mono text-sm transition cursor-pointer"
               >
                 <option value="">-- Select package from baseline tree --</option>
                 {existingPackageNames
@@ -191,13 +191,13 @@ export default function SimulationPanel({
 
           {/* Dependent Parent */}
           <div className="space-y-1.5">
-            <label className="block text-slate-800 dark:text-slate-200 font-bold">
+            <label className="block text-slate-800 dark:text-slate-200 font-bold text-sm">
               Dependent Parent
             </label>
             <select
               value={sourcePackage}
               onChange={(e) => setSourcePackage(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-[#070b14] border border-slate-300 dark:border-white/[0.08] rounded-xl px-3.5 py-2 text-slate-900 dark:text-slate-200 focus:outline-none focus:border-indigo-500/60 font-mono transition cursor-pointer"
+              className="w-full bg-slate-50 dark:bg-[#070b14] border border-slate-300 dark:border-white/[0.08] rounded-xl px-3.5 py-2 text-slate-900 dark:text-slate-200 focus:outline-none focus:border-indigo-500/60 font-mono text-sm transition cursor-pointer"
             >
               <option value="">Project Root ({rootPackage})</option>
               {existingPackageNames.map((p) => (
@@ -210,7 +210,7 @@ export default function SimulationPanel({
 
           {/* Version Constraint */}
           <div className="space-y-1.5">
-            <label className="block text-slate-800 dark:text-slate-200 font-bold">
+            <label className="block text-slate-800 dark:text-slate-200 font-bold text-sm">
               {operation === 'upgrade' ? 'Proposed Version *' : 'Version Constraint'}
             </label>
             <input
@@ -219,7 +219,7 @@ export default function SimulationPanel({
               onChange={(e) => setVersion(e.target.value)}
               disabled={operation === 'remove'}
               placeholder={operation === 'upgrade' ? 'e.g. 5.0.0' : '^1.0.0'}
-              className={`w-full bg-slate-50 dark:bg-[#070b14] border border-slate-300 dark:border-white/[0.08] rounded-xl px-3.5 py-2 text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-indigo-500/60 font-mono transition ${
+              className={`w-full bg-slate-50 dark:bg-[#070b14] border border-slate-300 dark:border-white/[0.08] rounded-xl px-3.5 py-2 text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-indigo-500/60 font-mono text-sm transition ${
                 operation === 'remove' ? 'opacity-30 cursor-not-allowed' : ''
               }`}
             />
@@ -233,7 +233,7 @@ export default function SimulationPanel({
             disabled={isLoading}
             whileHover={isLoading ? {} : { scale: 1.02 }}
             whileTap={isLoading ? {} : { scale: 0.98 }}
-            className="flex items-center space-x-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 text-white font-semibold text-xs px-6 py-2.5 rounded-xl shadow-glow-sm transition duration-200"
+            className="flex items-center space-x-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 text-white font-semibold text-sm px-6 py-2.5 rounded-xl shadow-glow-sm transition duration-200"
           >
             <Play className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
             <span>{isLoading ? 'Computing Topological Diff...' : 'Run Simulation'}</span>
@@ -252,20 +252,20 @@ export default function SimulationPanel({
             className="bg-slate-50 dark:bg-[#0c101c] border border-indigo-300 dark:border-indigo-500/40 rounded-2xl p-5 space-y-4 mt-4 shadow-2xs dark:shadow-card overflow-hidden"
           >
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 dark:border-white/[0.06] pb-3">
-              <div className="flex items-center space-x-2 text-xs font-bold text-indigo-800 dark:text-indigo-300">
+              <div className="flex items-center space-x-2 text-sm font-bold text-indigo-800 dark:text-indigo-300">
                 <GitPullRequest className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                 <span>Simulated Change Summary: {simulationResult.message}</span>
               </div>
-              <span className="text-[10px] uppercase tracking-wider font-bold bg-indigo-100 dark:bg-indigo-500/20 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 px-2.5 py-1 rounded-full">
+              <span className="text-xs uppercase tracking-wider font-bold bg-indigo-100 dark:bg-indigo-500/20 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 px-2.5 py-1 rounded-full">
                 In-Memory Diff Active
               </span>
             </div>
 
             {/* Diff Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
               <div className="bg-white dark:bg-[#0f1422] p-3 rounded-xl border border-emerald-300 dark:border-emerald-500/20">
-                <span className="text-slate-500 dark:text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Added Nodes</span>
-                <span className="font-semibold text-emerald-700 dark:text-emerald-400 font-mono text-xs mt-1 block truncate">
+                <span className="text-slate-500 dark:text-slate-400 block text-xs uppercase font-bold tracking-wider">Added Nodes</span>
+                <span className="font-semibold text-emerald-700 dark:text-emerald-400 font-mono text-sm mt-1 block truncate">
                   {simulationResult.diff.added_nodes.length > 0
                     ? `+ ${simulationResult.diff.added_nodes.join(', ')}`
                     : 'None'}
@@ -273,8 +273,8 @@ export default function SimulationPanel({
               </div>
 
               <div className="bg-white dark:bg-[#0f1422] p-3 rounded-xl border border-rose-300 dark:border-rose-500/20">
-                <span className="text-slate-500 dark:text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Removed Nodes</span>
-                <span className="font-semibold text-rose-700 dark:text-rose-400 font-mono text-xs mt-1 block truncate">
+                <span className="text-slate-500 dark:text-slate-400 block text-xs uppercase font-bold tracking-wider">Removed Nodes</span>
+                <span className="font-semibold text-rose-700 dark:text-rose-400 font-mono text-sm mt-1 block truncate">
                   {simulationResult.diff.removed_nodes.length > 0
                     ? `- ${simulationResult.diff.removed_nodes.join(', ')}`
                     : 'None'}
@@ -282,8 +282,8 @@ export default function SimulationPanel({
               </div>
 
               <div className="bg-white dark:bg-[#0f1422] p-3 rounded-xl border border-amber-300 dark:border-amber-500/20">
-                <span className="text-slate-500 dark:text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Orphaned Nodes</span>
-                <span className="font-semibold text-amber-700 dark:text-amber-400 font-mono text-xs mt-1 block truncate">
+                <span className="text-slate-500 dark:text-slate-400 block text-xs uppercase font-bold tracking-wider">Orphaned Nodes</span>
+                <span className="font-semibold text-amber-700 dark:text-amber-400 font-mono text-sm mt-1 block truncate">
                   {simulationResult.diff.orphaned_nodes.length > 0
                     ? `~ ${simulationResult.diff.orphaned_nodes.join(', ')}`
                     : 'None'}
@@ -291,8 +291,8 @@ export default function SimulationPanel({
               </div>
 
               <div className="bg-white dark:bg-[#0f1422] p-3 rounded-xl border border-cyan-300 dark:border-cyan-500/20">
-                <span className="text-slate-500 dark:text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Blast Radius Shift</span>
-                <span className="font-semibold text-slate-800 dark:text-slate-200 mt-1 block font-mono text-xs">
+                <span className="text-slate-500 dark:text-slate-400 block text-xs uppercase font-bold tracking-wider">Blast Radius Shift</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200 mt-1 block font-mono text-sm">
                   {simulationResult.impact_diff.baseline_affected_count} &rarr;{' '}
                   <span className="text-cyan-700 dark:text-cyan-400 font-bold">{simulationResult.impact_diff.simulated_affected_count}</span> affected
                 </span>
@@ -301,13 +301,13 @@ export default function SimulationPanel({
 
             {/* Cycle Delta Alerts */}
             {simulationResult.cycle_diff.introduced_cycles.length > 0 && (
-              <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-600/50 p-3.5 rounded-xl text-xs space-y-1.5">
+              <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-600/50 p-3.5 rounded-xl text-sm space-y-1.5">
                 <div className="font-bold text-rose-800 dark:text-rose-300 flex items-center space-x-2">
                   <AlertTriangle className="w-4 h-4 text-rose-500 dark:text-rose-400" />
                   <span>Simulation Introduces New Circular Loops:</span>
                 </div>
                 {simulationResult.cycle_diff.introduced_cycles.map((cyc, idx) => (
-                  <div key={idx} className="font-mono text-[11px] text-rose-800 dark:text-rose-200 bg-white dark:bg-rose-900/30 px-2.5 py-1 rounded-lg border border-rose-200 dark:border-rose-800/40">
+                  <div key={idx} className="font-mono text-xs sm:text-[13px] text-rose-800 dark:text-rose-200 bg-white dark:bg-rose-900/30 px-2.5 py-1 rounded-lg border border-rose-200 dark:border-rose-800/40">
                     + Loop: {cyc.cycle_path.join(' → ')}
                   </div>
                 ))}
@@ -315,13 +315,13 @@ export default function SimulationPanel({
             )}
 
             {simulationResult.cycle_diff.eliminated_cycles.length > 0 && (
-              <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-600/50 p-3.5 rounded-xl text-xs space-y-1.5">
+              <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-600/50 p-3.5 rounded-xl text-sm space-y-1.5">
                 <div className="font-bold text-emerald-800 dark:text-emerald-300 flex items-center space-x-2">
                   <CheckCircle className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
                   <span>Simulation Successfully Breaks Existing Circular Loops:</span>
                 </div>
                 {simulationResult.cycle_diff.eliminated_cycles.map((cyc, idx) => (
-                  <div key={idx} className="font-mono text-[11px] text-emerald-800 dark:text-emerald-200 bg-white dark:bg-emerald-900/30 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800/40">
+                  <div key={idx} className="font-mono text-xs sm:text-[13px] text-emerald-800 dark:text-emerald-200 bg-white dark:bg-emerald-900/30 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800/40">
                     - Eliminated Loop: {cyc.cycle_path.join(' → ')}
                   </div>
                 ))}
@@ -330,7 +330,7 @@ export default function SimulationPanel({
 
             {/* Warnings */}
             {simulationResult.warnings.length > 0 && (
-              <div className="text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 p-3 rounded-xl border border-amber-200 dark:border-amber-500/25 space-y-1">
+              <div className="text-xs sm:text-[13px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 p-3 rounded-xl border border-amber-200 dark:border-amber-500/25 space-y-1">
                 <div className="font-bold flex items-center space-x-1.5">
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                   <span>Simulation Advisory:</span>

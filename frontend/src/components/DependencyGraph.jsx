@@ -255,18 +255,18 @@ export default function DependencyGraph({
             'background-color': 'data(color)',
             'label': 'data(label)',
             'color': isDark ? '#f8fafc' : '#0f172a',
-            'font-size': '11px',
+            'font-size': '13px',
             'font-weight': '600',
             'font-family': 'ui-sans-serif, system-ui, -apple-system, sans-serif',
             'text-valign': 'bottom',
             'text-margin-y': 7,
             'text-halign': 'center',
             'text-outline-color': isDark ? '#080c16' : '#ffffff',
-            'text-outline-width': isDark ? 2.5 : 2,
-            'text-max-width': '130px',
+            'text-outline-width': isDark ? 3 : 2.5,
+            'text-max-width': '150px',
             'text-wrap': 'wrap',
-            'width': 'mapData(depth, 0, 5, 42, 28)',
-            'height': 'mapData(depth, 0, 5, 42, 28)',
+            'width': 'mapData(depth, 0, 5, 46, 32)',
+            'height': 'mapData(depth, 0, 5, 46, 32)',
             'border-width': 'data(borderWidth)',
             'border-color': 'data(borderColor)',
             'transition-property': 'background-color, border-color, border-width, opacity',
@@ -558,24 +558,24 @@ export default function DependencyGraph({
 
         {/* In-Canvas Search Filter */}
         <div className="pointer-events-auto relative w-48 sm:w-64">
-          <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
+          <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
           <input
             type="text"
             value={graphSearchQuery}
             onChange={(e) => setGraphSearchQuery(e.target.value)}
             placeholder="Filter node in canvas..."
-            className="w-full bg-white/95 dark:bg-[#0c111e]/95 backdrop-blur-md border border-slate-200 dark:border-white/[0.1] rounded-xl pl-8.5 pr-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500/60 shadow-md font-mono transition"
+            className="w-full bg-white/95 dark:bg-[#0c111e]/95 backdrop-blur-md border border-slate-200 dark:border-white/[0.1] rounded-xl pl-9 pr-3 py-1.5 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500/60 shadow-md font-mono transition"
           />
         </div>
 
         {/* Action Controls & Layout Switcher */}
-        <div className="pointer-events-auto flex items-center space-x-1.5 bg-white/95 dark:bg-[#0c111e]/95 backdrop-blur-md border border-slate-200 dark:border-white/[0.1] p-1 rounded-xl shadow-lg transition-colors duration-200 text-xs">
+        <div className="pointer-events-auto flex items-center space-x-1.5 bg-white/95 dark:bg-[#0c111e]/95 backdrop-blur-md border border-slate-200 dark:border-white/[0.1] p-1.5 rounded-xl shadow-lg transition-colors duration-200 text-sm">
           {/* Layout Switcher Dropdown */}
           <select
             value={layoutName}
             onChange={(e) => setLayoutName(e.target.value)}
             title="Change graph layout algorithm"
-            className="bg-transparent text-slate-700 dark:text-slate-300 font-medium px-2 py-1 rounded-lg focus:outline-none cursor-pointer text-xs"
+            className="bg-transparent text-slate-700 dark:text-slate-300 font-medium px-2 py-1 rounded-lg focus:outline-none cursor-pointer text-sm"
           >
             <option value="cose" className="dark:bg-slate-900">Force (COSE)</option>
             <option value="breadthfirst" className="dark:bg-slate-900">Hierarchy (Tree)</option>
@@ -594,7 +594,7 @@ export default function DependencyGraph({
             aria-label="Zoom In"
             className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800/80 rounded-lg transition"
           >
-            <ZoomIn className="w-3.5 h-3.5" />
+            <ZoomIn className="w-4 h-4" />
           </motion.button>
 
           {/* Zoom Out */}
@@ -606,7 +606,7 @@ export default function DependencyGraph({
             aria-label="Zoom Out"
             className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800/80 rounded-lg transition"
           >
-            <ZoomOut className="w-3.5 h-3.5" />
+            <ZoomOut className="w-4 h-4" />
           </motion.button>
 
           {/* Fit Viewport */}
@@ -618,7 +618,7 @@ export default function DependencyGraph({
             aria-label="Fit Graph to Viewport"
             className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800/80 rounded-lg transition"
           >
-            <Maximize2 className="w-3.5 h-3.5" />
+            <Maximize2 className="w-4 h-4" />
           </motion.button>
 
           {/* Reset Zoom & Pan */}
@@ -630,7 +630,7 @@ export default function DependencyGraph({
             aria-label="Reset Zoom & Pan"
             className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800/80 rounded-lg transition"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
+            <RotateCcw className="w-4 h-4" />
           </motion.button>
 
           <div className="w-[1px] h-4 bg-slate-200 dark:bg-slate-700/80 mx-0.5" />
@@ -644,22 +644,22 @@ export default function DependencyGraph({
             aria-label="Export high-resolution PNG"
             className="p-1.5 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/40 rounded-lg transition"
           >
-            <Download className="w-3.5 h-3.5" />
+            <Download className="w-4 h-4" />
           </motion.button>
         </div>
       </div>
 
       {/* Floating Canvas Legend */}
-      <div className="absolute bottom-3.5 left-3.5 bg-white/95 dark:bg-[#0c111e]/95 backdrop-blur-md border border-slate-200 dark:border-white/[0.1] rounded-2xl text-xs shadow-lg z-10 transition-colors duration-200 overflow-hidden max-w-[280px]">
+      <div className="absolute bottom-3.5 left-3.5 bg-white/95 dark:bg-[#0c111e]/95 backdrop-blur-md border border-slate-200 dark:border-white/[0.1] rounded-2xl text-xs sm:text-[13px] shadow-lg z-10 transition-colors duration-200 overflow-hidden max-w-[310px]">
         <div
           onClick={() => setLegendOpen(!legendOpen)}
-          className="flex items-center justify-between px-3.5 py-2 cursor-pointer border-b border-slate-200 dark:border-white/[0.06] hover:bg-slate-50 dark:hover:bg-slate-800/40 select-none"
+          className="flex items-center justify-between px-3.5 py-2.5 cursor-pointer border-b border-slate-200 dark:border-white/[0.06] hover:bg-slate-50 dark:hover:bg-slate-800/40 select-none"
         >
-          <span className="font-semibold text-slate-800 dark:text-slate-200 text-[11px] flex items-center space-x-2">
-            <Layers className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-            <span>Graph Legend {isSimulated ? '(Diff View)' : '(A → B)'}</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs sm:text-[13px] flex items-center space-x-2">
+            <Layers className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+            <span>Graph Legend {isSimulated ? '(Simulation)' : ''}</span>
           </span>
-          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono ml-3">
+          <span className="text-xs text-slate-400 dark:text-slate-500 font-mono ml-3">
             {legendOpen ? 'Collapse' : 'Expand'}
           </span>
         </div>
@@ -671,7 +671,7 @@ export default function DependencyGraph({
               animate={{ opacity: 1, height: 'auto' }}
               exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
               transition={{ duration: 0.2, ease: easeSoft }}
-              className="p-3 space-y-1.5 text-[11px] overflow-hidden"
+              className="p-3.5 space-y-2 text-xs sm:text-[13px] overflow-hidden"
             >
               <div className="flex items-center space-x-2.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-2xs inline-block"></span>
@@ -692,7 +692,7 @@ export default function DependencyGraph({
               {isSimulated && (
                 <>
                   <div className="pt-1.5 border-t border-slate-200 dark:border-white/[0.06] mt-1.5">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500">Simulation Overlays</span>
+                    <span className="text-xs uppercase font-bold text-slate-400 dark:text-slate-500">Simulation Overlays</span>
                   </div>
                   <div className="flex items-center space-x-2.5">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 dark:bg-emerald-400 inline-block"></span>
