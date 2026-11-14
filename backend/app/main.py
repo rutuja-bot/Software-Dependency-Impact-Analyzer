@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,6 +8,8 @@ from app.core.config import settings
 from app.api.routes.analysis import router as analysis_router
 from app.api.routes.projects import router as projects_router
 from app.api.routes.analyses import router as analyses_router
+
+logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -42,6 +45,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Request payload size guard middleware
+@app.middleware("http")
+async def enforce_request_size_limit(request: Request, call_next):
+    """
+    Enforces maximum request payload size before buffering into memory.
+    Returns HTTP 413 Payload Too Large if Content-Length exceeds configured limit.
+    """
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            length = int(content_length)
+            if length > settings.MAX_REQUEST_BODY_SIZE_BYTES:
+                limit_mb = max(1, settings.MAX_REQUEST_BODY_SIZE_BYTES // (1024 * 1024))
+                return JSONResponse(
+                    status_code=413,
+                    content={
+                        "detail": f"Payload too large ({length} bytes). Maximum allowed request size is {limit_mb} MiB."
+                    }
+                )
+        except ValueError:
+            pass
+    return await call_next(request)
+
 # Centralized exception handler for unhandled non-HTTP exceptions
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -51,7 +77,14 @@ async def global_exception_handler(request: Request, exc: Exception):
             status_code=exc.status_code,
             content={"detail": exc.detail}
         )
-    # Hide internal traceback for unhandled generic exceptions
+    # Hide internal traceback from client while recording full diagnostics in server logs
+    logger.error(
+        "Unhandled exception processing %s %s: %s",
+        request.method,
+        request.url.path,
+        exc,
+        exc_info=True
+    )
     return JSONResponse(
         status_code=500,
         content={"detail": f"An internal server error occurred while processing the request: {type(exc).__name__}"}

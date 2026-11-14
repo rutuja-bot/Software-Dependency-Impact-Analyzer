@@ -1,6 +1,21 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+const resolveApiBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (envUrl && envUrl.trim()) {
+    return envUrl.trim().replace(/\/+$/, '');
+  }
+  if (import.meta.env.PROD) {
+    console.error(
+      '[Configuration Error] VITE_API_BASE_URL is not configured in this production deployment. ' +
+      'Silent fallback to localhost is prohibited.'
+    );
+    return '/api';
+  }
+  return 'http://localhost:8000/api';
+};
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -8,6 +23,25 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
   timeout: 10000,
+});
+
+// Client session partitioner for multi-user graph isolation
+const getSessionId = () => {
+  try {
+    let sid = sessionStorage.getItem('dep_analyzer_session_id');
+    if (!sid) {
+      sid = 'sess_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now().toString(36);
+      sessionStorage.setItem('dep_analyzer_session_id', sid);
+    }
+    return sid;
+  } catch {
+    return 'sess_tab_' + Date.now().toString(36);
+  }
+};
+
+api.interceptors.request.use((config) => {
+  config.headers['X-Session-ID'] = getSessionId();
+  return config;
 });
 
 export const checkHealth = async () => {

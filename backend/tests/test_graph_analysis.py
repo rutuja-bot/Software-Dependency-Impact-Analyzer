@@ -179,3 +179,53 @@ def test_dense_cycles_capped():
     assert analysis.stats.has_cycles is True
     assert len(analysis.cycles) == 50
 
+
+def test_package_count_limit_enforced():
+    """Verify that manifests with excessive packages fail cleanly with ValueError."""
+    from unittest.mock import patch
+    from app.core.config import settings
+
+    large_deps = {f"pkg-{i}": "1.0.0" for i in range(105)}
+    raw_pkg = {"name": "large-app", "dependencies": large_deps}
+
+    with patch.object(settings, "MAX_PACKAGE_COUNT", 100):
+        with pytest.raises(ValueError, match="exceeds maximum allowed dependency limit"):
+            NodeJsManifestParser.parse_package_json(raw_pkg)
+
+
+def test_session_isolated_graph_cache():
+    """Verify that concurrent user sessions do not overwrite each other in memory."""
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    client = TestClient(app)
+
+    # Session 1 analyzes project A
+    manifest_a = {
+        "package_json": {
+            "name": "project-alpha",
+            "dependencies": {"shared-dep": "1.0.0"}
+        }
+    }
+    res_a = client.post("/api/analyze", json=manifest_a, headers={"X-Session-ID": "session-user-a"})
+    assert res_a.status_code == 200
+
+    # Session 2 analyzes project B
+    manifest_b = {
+        "package_json": {
+            "name": "project-beta",
+            "dependencies": {"other-dep": "2.0.0"}
+        }
+    }
+    res_b = client.post("/api/analyze", json=manifest_b, headers={"X-Session-ID": "session-user-b"})
+    assert res_b.status_code == 200
+
+    # Session 1 checks impact for shared-dep
+    impact_a = client.get("/api/impact?target_package=shared-dep", headers={"X-Session-ID": "session-user-a"})
+    assert impact_a.status_code == 200
+    assert "project-alpha" in impact_a.json()["affected_packages"]
+
+    # Session 2 checks impact for other-dep
+    impact_b = client.get("/api/impact?target_package=other-dep", headers={"X-Session-ID": "session-user-b"})
+    assert impact_b.status_code == 200
+    assert "project-beta" in impact_b.json()["affected_packages"]

@@ -1,8 +1,10 @@
 import logging
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Path
+from fastapi import APIRouter, Depends, HTTPException, Path, Header, Request
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
+from app.core.rate_limiter import limiter
 from app.db.session import get_db
 from app.db.repository import ProjectRepository
 from app.schemas.project import (
@@ -101,17 +103,21 @@ async def get_analysis_snapshot(
 
 @router.post("/{analysis_id}/restore", summary="Restore historical analysis snapshot into active memory cache")
 async def restore_analysis_snapshot(
+    request: Request,
     analysis_id: str = Path(..., description="Analysis Run UUID"),
-    repo: ProjectRepository = Depends(require_repo)
+    repo: ProjectRepository = Depends(require_repo),
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID")
 ):
+    limiter.check_rate_limit(request, "restore", settings.RATE_LIMIT_RESTORE)
     analysis = repo.get_analysis_by_id(analysis_id)
     if not analysis:
         raise HTTPException(status_code=404, detail=f"Analysis run with ID '{analysis_id}' not found.")
     if not analysis.graph_snapshot:
         raise HTTPException(status_code=404, detail=f"No graph snapshot stored for analysis '{analysis_id}'.")
 
-    from app.api.routes.analysis import restore_graph_from_snapshot
-    active_entry = restore_graph_from_snapshot(analysis)
+    from app.api.routes.analysis import restore_graph_from_snapshot, resolve_session_key
+    session_key = resolve_session_key(request, x_session_id)
+    active_entry = restore_graph_from_snapshot(analysis, session_id=session_key)
 
     return {
         "status": "restored",

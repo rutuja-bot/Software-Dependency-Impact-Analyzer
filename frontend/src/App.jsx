@@ -6,6 +6,7 @@ import {
   Navigate 
 } from 'react-router-dom';
 import { AnalysisProvider, useAnalysis } from './context/AnalysisContext';
+import { ThemeProvider } from './context/ThemeContext';
 import Layout from './components/Layout';
 import { Loader2 } from 'lucide-react';
 
@@ -130,12 +131,14 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AnalysisProvider>
-      <HashRouter>
-        <ChunkErrorBoundary>
-          <AppRoutes />
-        </ChunkErrorBoundary>
-      </HashRouter>
-    </AnalysisProvider>
+    <ThemeProvider>
+      <AnalysisProvider>
+        <HashRouter>
+          <ChunkErrorBoundary>
+            <AppRoutes />
+          </ChunkErrorBoundary>
+        </HashRouter>
+      </AnalysisProvider>
+    </ThemeProvider>
   );
 }

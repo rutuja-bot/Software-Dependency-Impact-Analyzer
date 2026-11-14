@@ -1,6 +1,8 @@
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel
 
+from app.core.config import settings
+
 class NormalizedDependency(BaseModel):
     name: str
     version_constraint: Optional[str] = None
@@ -23,11 +25,31 @@ class NodeJsManifestParser:
     """
 
     @staticmethod
+    def _check_package_limit(manifest: NormalizedProjectManifest) -> None:
+        max_allowed = getattr(settings, "MAX_PACKAGE_COUNT", 400)
+        if len(manifest.dependencies) > max_allowed:
+            raise ValueError(
+                f"Manifest exceeds maximum allowed dependency limit of {max_allowed} packages "
+                f"(received {len(manifest.dependencies)})."
+            )
+        total_edges = sum(len(d.dependencies) for d in manifest.dependencies.values())
+        max_edges = getattr(settings, "MAX_DEPENDENCY_EDGES", 2000)
+        if total_edges > max_edges:
+            raise ValueError(
+                f"Manifest exceeds maximum allowed dependency relationships ({max_edges} edges limit, "
+                f"received {total_edges} edges)."
+            )
+
+    @staticmethod
     def parse_package_json(raw: Dict[str, Any]) -> NormalizedProjectManifest:
         if not isinstance(raw, dict):
             raise ValueError("package.json content must be a valid JSON object.")
         
-        project_name = raw.get("name", "unnamed-project")
+        project_name = str(raw.get("name", "unnamed-project")).strip()
+        if not project_name:
+            project_name = "unnamed-project"
+        if len(project_name) > 255:
+            raise ValueError("Project name exceeds maximum allowed length of 255 characters.")
         project_version = raw.get("version", "1.0.0")
 
         manifest = NormalizedProjectManifest(
@@ -57,6 +79,7 @@ class NodeJsManifestParser:
                         is_dev=True
                     )
 
+        NodeJsManifestParser._check_package_limit(manifest)
         return manifest
 
     @staticmethod
@@ -144,4 +167,5 @@ class NodeJsManifestParser:
 
             _extract_v1_deps(raw_lock["dependencies"])
 
+        NodeJsManifestParser._check_package_limit(manifest)
         return manifest

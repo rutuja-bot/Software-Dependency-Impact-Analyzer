@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Any
 from concurrent.futures import ThreadPoolExecutor
 import requests
 
+from app.core.config import settings
 from app.schemas.security import (
     PackageFreshnessResult,
     FreshnessAnalysisResponse
@@ -95,6 +96,7 @@ class LibYearFreshnessService:
     def prefetch_release_dates(self, package_names: List[str], retry_failed: bool = False) -> None:
         """
         Concurrently pre-fetches release timestamps for multiple packages using connection pooling.
+        Enforces MAX_EXTERNAL_SCAN_PACKAGES limit to prevent upstream registry flooding.
         """
         if retry_failed:
             uncached = [p for p in set(package_names) if p and (p not in self._cache or not self._cache.get(p))]
@@ -103,6 +105,12 @@ class LibYearFreshnessService:
 
         if not uncached:
             return
+
+        max_allowed = getattr(settings, "MAX_EXTERNAL_SCAN_PACKAGES", 75)
+        if len(uncached) > max_allowed:
+            logger.info(f"Limiting npm registry prefetch from {len(uncached)} to {max_allowed} packages.")
+            uncached = uncached[:max_allowed]
+
         workers = min(self.max_workers, len(uncached))
         with ThreadPoolExecutor(max_workers=workers) as executor:
             list(executor.map(self.fetch_package_release_dates, uncached))

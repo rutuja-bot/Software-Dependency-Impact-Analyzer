@@ -19,6 +19,9 @@ export default defineConfig({
             if (id.includes('lucide-react')) {
               return 'vendor-lucide';
             }
+            if (id.includes('motion')) {
+              return 'vendor-motion';
+            }
             if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom') || id.includes('axios')) {
               return 'vendor-core';
             }

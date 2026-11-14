@@ -1,34 +1,40 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  ShieldAlert, 
-  ShieldCheck, 
-  Search, 
-  AlertTriangle, 
-  CheckCircle2, 
-  ExternalLink, 
+import {
+  ShieldAlert,
+  ShieldCheck,
+  Search,
+  AlertTriangle,
+  CheckCircle2,
+  ExternalLink,
   Filter,
   Layers,
   HelpCircle,
-  Sparkles
+  Sparkles,
+  Shield,
+  Bug,
+  Lock
 } from 'lucide-react';
 import { useAnalysis } from '../context/AnalysisContext';
 import { scanSecurity, getAnalysisSecurity } from '../services/api';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
+import { AnimatedCounter, Skeleton, easeSoft } from '../utils/animations';
 
 export default function SecurityPage() {
-  const { 
-    securityResult, 
-    setSecurityResult, 
+  const shouldReduceMotion = useReducedMotion();
+  const {
+    securityResult,
+    setSecurityResult,
     analysisResult,
-    isSimulatedActive 
+    isSimulatedActive
   } = useAnalysis();
 
   const [isScanning, setIsScanning] = useState(false);
   const [isLoadingPersisted, setIsLoadingPersisted] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
-  const [severityFilter, setSeverityFilter] = useState('all'); // 'all' | 'high' | 'medium' | 'low'
+  const [severityFilter, setSeverityFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Auto-fetch persisted security findings for loaded analysis snapshot if not already hydrated
+  // Auto-fetch persisted security findings for loaded snapshot
   useEffect(() => {
     let isMounted = true;
     const fetchPersistedSecurity = async () => {
@@ -85,11 +91,10 @@ export default function SecurityPage() {
     }
   };
 
-  // Normalize findings list regardless of whether it came from /security/scan (results) or /analyses/{id}/security (findings)
+  // Normalize findings list
   const normalizedFindings = useMemo(() => {
     if (!securityResult) return [];
 
-    // Case 1: Fresh scan response ({ results: [...] })
     if (securityResult.results) {
       const items = [];
       securityResult.results.forEach((pkg) => {
@@ -110,7 +115,6 @@ export default function SecurityPage() {
       return items;
     }
 
-    // Case 2: Persisted history response ({ findings: [...] })
     if (securityResult.findings) {
       return securityResult.findings
         .filter(f => f.scan_status === 'vulnerable')
@@ -131,7 +135,6 @@ export default function SecurityPage() {
   // Filtered Findings
   const filteredFindings = useMemo(() => {
     return normalizedFindings.filter((f) => {
-      // Severity check
       if (severityFilter !== 'all') {
         const sev = (f.severity || '').toLowerCase();
         if (severityFilter === 'high' && !sev.includes('high') && !sev.includes('critical') && !sev.includes('cvss:3') && !sev.includes('cvss:4')) {
@@ -145,7 +148,6 @@ export default function SecurityPage() {
         }
       }
 
-      // Search query check
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchesName = f.packageName.toLowerCase().includes(q);
@@ -182,148 +184,201 @@ export default function SecurityPage() {
     return Math.max(0, total - vuln - unresolvedCount);
   }, [securityResult, analysisResult, unresolvedCount]);
 
+  const filterTabs = [
+    { id: 'all', label: 'All' },
+    { id: 'high', label: 'High / Critical' },
+    { id: 'medium', label: 'Medium' },
+    { id: 'low', label: 'Low' },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header Card */}
-      <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-5 shadow-sm space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-700/80 pb-3">
-          <div className="flex items-center space-x-2">
-            <div className="p-1.5 bg-rose-500/10 text-rose-400 rounded-lg">
-              <ShieldAlert className="w-5 h-5 text-rose-400" />
+      <div className="bg-white dark:bg-[#0f1422] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-6 shadow-2xs dark:shadow-card space-y-5 transition-colors duration-200">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 dark:border-white/[0.06] pb-4">
+          <div className="flex items-center space-x-3">
+            <div className="p-2.5 bg-rose-500/10 text-rose-500 dark:text-rose-400 rounded-xl border border-rose-500/20 shadow-glow-rose">
+              <ShieldAlert className="w-5 h-5 text-rose-500 dark:text-rose-400" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h2 className="text-sm font-bold text-white tracking-wide">
+                <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
                   Security Intelligence & OSV Vulnerability Scanning
                 </h2>
                 {isSimulatedActive && (
-                  <span className="text-[10px] font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded font-semibold flex items-center space-x-1">
-                    <Sparkles className="w-3 h-3 text-indigo-400" />
+                  <span className="text-[10px] font-mono bg-indigo-50 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 px-2.5 py-0.5 rounded-full font-semibold flex items-center space-x-1">
+                    <Sparkles className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
                     <span>Baseline Project Data</span>
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-400">
-                Matches dependencies against Google's Open Source Vulnerabilities database
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Direct integration with Google's Open Source Vulnerabilities database for published security advisories and CVEs
               </p>
             </div>
           </div>
 
-          <button
+          <motion.button
             type="button"
             onClick={handleRunSecurityScan}
             disabled={isScanning || !analysisResult || isSimulatedActive}
+            whileHover={isScanning || !analysisResult || isSimulatedActive ? {} : { scale: 1.02 }}
+            whileTap={isScanning || !analysisResult || isSimulatedActive ? {} : { scale: 0.98 }}
             title={isSimulatedActive ? 'Reset simulation before running security scan on baseline' : ''}
-            className="flex items-center space-x-1.5 text-xs font-semibold bg-rose-600 hover:bg-rose-500 disabled:bg-slate-700 text-white px-4 py-2 rounded-lg transition shadow-sm"
+            className="flex items-center space-x-2 text-xs font-semibold bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-xl transition shadow-glow-rose duration-200"
           >
             <Search className={`w-3.5 h-3.5 ${isScanning ? 'animate-spin' : ''}`} />
-            <span>{isScanning ? 'Querying OSV API...' : 'Scan OSV Vulnerabilities'}</span>
-          </button>
+            <span>{isScanning ? 'Querying OSV Registry API...' : 'Scan OSV Vulnerabilities'}</span>
+          </motion.button>
         </div>
 
         {isSimulatedActive && (
-          <div className="flex items-center space-x-2 text-xs text-amber-300 bg-amber-500/10 p-3 rounded-lg border border-amber-500/30">
-            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
-            <span>
+          <div className="flex items-start space-x-2.5 text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 p-3.5 rounded-xl border border-amber-200 dark:border-amber-500/25">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+            <span className="leading-relaxed">
               <strong>What-If Simulation Active:</strong> Displayed vulnerability findings correspond to the verified <strong>baseline analysis ({analysisResult?.project_name})</strong>, not temporary in-memory simulation mutations. Scan actions are locked until the simulation is reset.
             </span>
           </div>
         )}
 
-        {errorMsg && (
-          <div className="flex items-center space-x-2 text-xs text-rose-400 bg-rose-500/10 p-3 rounded-lg border border-rose-500/20">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-            <span>{errorMsg}</span>
-          </div>
-        )}
+        <AnimatePresence>
+          {errorMsg && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2, ease: easeSoft }}
+              className="flex items-start space-x-2.5 text-xs text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-500/10 p-3.5 rounded-xl border border-rose-200 dark:border-rose-500/25 overflow-hidden"
+            >
+              <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500 dark:text-rose-400 mt-0.5" />
+              <span>{errorMsg}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Security Metric Counters */}
         {securityResult && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
-            <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-700/80">
-              <div className="text-[11px] text-slate-400">Vulnerable Packages</div>
-              <div className={`text-xl font-bold ${securityResult.vulnerable_packages_count > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                {securityResult.vulnerable_packages_count}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-1">
+            <div className="bg-slate-50 dark:bg-[#070b14] p-4 rounded-xl border border-slate-200/80 dark:border-white/[0.05]">
+              <div className="text-[11px] uppercase font-bold tracking-wider text-slate-500">Vulnerable Packages</div>
+              <div className={`text-2xl font-extrabold font-mono mt-1 ${securityResult.vulnerable_packages_count > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                <AnimatedCounter value={securityResult.vulnerable_packages_count} />
               </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Has &ge;1 CVE advisory</div>
             </div>
-            <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-700/80">
-              <div className="text-[11px] text-slate-400">Total Advisories</div>
-              <div className="text-xl font-bold text-white">
-                {normalizedFindings.length}
+
+            <div className="bg-slate-50 dark:bg-[#070b14] p-4 rounded-xl border border-slate-200/80 dark:border-white/[0.05]">
+              <div className="text-[11px] uppercase font-bold tracking-wider text-slate-500">Total Advisories</div>
+              <div className="text-2xl font-extrabold text-slate-900 dark:text-white font-mono mt-1">
+                <AnimatedCounter value={normalizedFindings.length} />
               </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Unique CVE / GHSA IDs</div>
             </div>
-            <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-700/80">
-              <div className="text-[11px] text-slate-400">Clean Packages</div>
-              <div className="text-xl font-bold text-emerald-400">
-                {cleanCount}
+
+            <div className="bg-slate-50 dark:bg-[#070b14] p-4 rounded-xl border border-slate-200/80 dark:border-white/[0.05]">
+              <div className="text-[11px] uppercase font-bold tracking-wider text-slate-500">Clean Packages</div>
+              <div className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono mt-1">
+                <AnimatedCounter value={cleanCount} />
               </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Zero published advisories</div>
             </div>
-            <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-700/80">
-              <div className="text-[11px] text-slate-400">Unresolved / Unverified</div>
-              <div className="text-xl font-bold text-amber-400">
-                {unresolvedCount}
+
+            <div className="bg-slate-50 dark:bg-[#070b14] p-4 rounded-xl border border-slate-200/80 dark:border-white/[0.05]">
+              <div className="text-[11px] uppercase font-bold tracking-wider text-slate-500">Unresolved in OSV</div>
+              <div className="text-2xl font-extrabold text-amber-600 dark:text-amber-400 font-mono mt-1">
+                <AnimatedCounter value={unresolvedCount} />
               </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Custom prefix / range</div>
             </div>
           </div>
         )}
       </div>
 
       {/* Security Analysis Workspace */}
-      {isLoadingPersisted ? (
-        <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl p-8 text-center text-slate-400 space-y-3">
-          <div className="w-8 h-8 border-2 border-rose-500 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-xs text-slate-300">Loading persisted security findings for this snapshot...</p>
+      {isLoadingPersisted || isScanning ? (
+        <div className="bg-white dark:bg-[#0f1422] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-8 space-y-4 shadow-2xs dark:shadow-card">
+          <div className="flex items-center space-x-3">
+            <div className="w-5 h-5 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+              {isScanning ? 'Querying OSV registry archives for package vulnerabilities...' : 'Hydrating persisted security findings for this snapshot...'}
+            </span>
+          </div>
+          <div className="space-y-3 pt-2">
+            <Skeleton height="70px" />
+            <Skeleton height="70px" />
+            <Skeleton height="70px" />
+          </div>
         </div>
       ) : !securityResult ? (
-        <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl p-8 text-center text-slate-400 space-y-3">
-          <ShieldAlert className="w-10 h-10 mx-auto text-slate-500" />
-          <h3 className="text-base font-semibold text-slate-200">No Security Scan Performed Yet</h3>
-          <p className="text-xs max-w-md mx-auto">
-            Click <strong>"Scan OSV Vulnerabilities"</strong> above to inspect package versions against the Open Source Vulnerabilities database.
-          </p>
+        <div className="bg-white dark:bg-[#0f1422] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-12 text-center text-slate-500 dark:text-slate-400 space-y-4 max-w-xl mx-auto shadow-2xs dark:shadow-card">
+          <div className="p-3.5 bg-rose-500/10 text-rose-500 dark:text-rose-400 rounded-2xl w-fit mx-auto border border-rose-500/20">
+            <ShieldAlert className="w-8 h-8" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">No Security Scan Performed Yet</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+              Click <strong>"Scan OSV Vulnerabilities"</strong> above to inspect package versions against the Open Source Vulnerabilities database.
+            </p>
+          </div>
         </div>
       ) : normalizedFindings.length === 0 ? (
-        <div className="bg-emerald-950/20 border border-emerald-800/40 rounded-xl p-6 text-center space-y-2">
-          <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-400" />
-          <h3 className="text-base font-bold text-emerald-300">No Known Vulnerabilities Found</h3>
-          <p className="text-xs text-slate-400 max-w-lg mx-auto">
-            All inspected dependencies returned clean records from the OSV database. Note: Clean API results indicate absence of published CVE advisories, not formal security proof.
-          </p>
+        <div className="bg-white dark:bg-[#0f1422] border border-emerald-500/30 rounded-2xl p-8 text-center space-y-3 shadow-2xs dark:shadow-card max-w-xl mx-auto">
+          <div className="p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl w-fit mx-auto border border-emerald-500/25 shadow-glow-emerald">
+            <CheckCircle2 className="w-8 h-8" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-emerald-700 dark:text-emerald-300">No Known Vulnerabilities Found</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-lg mx-auto leading-relaxed">
+              All inspected dependencies returned clean records from the OSV database. Note: Clean API results indicate absence of published CVE advisories, not formal security proof.
+            </p>
+          </div>
         </div>
       ) : (
         <div className="space-y-4">
-          {/* Filter Bar */}
-          <div className="bg-slate-800/60 border border-slate-700/80 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3">
+          {/* Filter Bar with Animated Pill */}
+          <div className="bg-white dark:bg-[#0f1422] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-2xs dark:shadow-card">
             <div className="flex items-center space-x-2">
               <Filter className="w-4 h-4 text-slate-400" />
-              <span className="text-xs font-semibold text-slate-300">
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
                 {isSimulatedActive ? 'Baseline Vulnerability Filter:' : 'Filter Severity:'}
               </span>
-              {['all', 'high', 'medium', 'low'].map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  onClick={() => setSeverityFilter(f)}
-                  className={`text-xs px-2.5 py-1 rounded-lg capitalize transition font-medium ${
-                    severityFilter === f
-                      ? 'bg-rose-600 text-white shadow-sm'
-                      : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-700'
-                  }`}
-                >
-                  {f}
-                </button>
-              ))}
+              <div className="flex items-center space-x-1.5">
+                {filterTabs.map((tab) => {
+                  const isSelected = severityFilter === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setSeverityFilter(tab.id)}
+                      className={`relative text-xs px-3 py-1.5 rounded-xl font-medium transition duration-150 ${
+                        isSelected
+                          ? 'text-white font-semibold'
+                          : 'bg-slate-100 dark:bg-[#070b14] text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-white/[0.05]'
+                      }`}
+                    >
+                      {isSelected && (
+                        <motion.div
+                          layoutId="activeSecurityFilter"
+                          className="absolute inset-0 bg-gradient-to-r from-rose-600 to-rose-700 rounded-xl shadow-glow-rose"
+                          transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                        />
+                      )}
+                      <span className="relative z-10">{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Search Input */}
-            <div className="relative w-full sm:w-64">
+            <div className="relative w-full sm:w-72">
               <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search package or CVE ID..."
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
+                placeholder="Search package name or CVE..."
+                className="w-full bg-slate-50 dark:bg-[#070b14] border border-slate-300 dark:border-white/[0.08] rounded-xl pl-8.5 pr-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-rose-500/60 transition"
               />
             </div>
           </div>
@@ -331,48 +386,50 @@ export default function SecurityPage() {
           {/* Advisories Grid / List */}
           <div className="space-y-3">
             {filteredFindings.map((finding, idx) => (
-              <div 
+              <motion.div
                 key={`${finding.packageName}-${finding.id}-${idx}`}
-                className="bg-slate-800/80 border border-rose-600/30 rounded-xl p-4 space-y-3 shadow-sm hover:border-rose-500/50 transition"
+                whileHover={shouldReduceMotion ? {} : { y: -2, transition: { duration: 0.15, ease: easeSoft } }}
+                className="bg-white dark:bg-[#0f1422] hover:bg-slate-50/80 dark:hover:bg-[#141b2e] border border-rose-300 dark:border-rose-500/30 hover:border-rose-400 dark:hover:border-rose-500/50 rounded-2xl p-5 space-y-3.5 shadow-2xs dark:shadow-card transition-colors duration-200"
               >
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-700/60 pb-2">
-                  <div className="flex items-center space-x-2">
-                    <span className="font-mono text-sm font-bold text-rose-300">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 dark:border-white/[0.06] pb-3">
+                  <div className="flex items-center space-x-2.5">
+                    <span className="font-mono text-sm font-bold text-rose-700 dark:text-rose-300">
                       {finding.packageName}
                     </span>
-                    <span className="text-xs text-slate-400 font-mono">
+                    <span className="text-xs text-slate-600 dark:text-slate-400 font-mono bg-slate-100 dark:bg-slate-900/80 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
                       v{finding.version}
                     </span>
                     {isSimulatedActive && (
-                      <span className="text-[10px] text-slate-400 font-sans italic bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700">
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-sans italic bg-slate-50 dark:bg-[#070b14] px-2 py-0.5 rounded border border-slate-200 dark:border-white/[0.04]">
                         Baseline Package
                       </span>
                     )}
                   </div>
+
                   <div className="flex items-center space-x-2">
-                    <span className="text-xs font-mono font-bold text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded border border-teal-500/20">
+                    <span className="text-xs font-mono font-bold text-cyan-700 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-500/10 px-2.5 py-0.5 rounded-full border border-cyan-200 dark:border-cyan-500/20">
                       {finding.id}
                     </span>
                     {finding.severity && (
-                      <span className="text-[10px] font-semibold bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30">
+                      <span className="text-[10px] font-semibold bg-amber-50 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 px-2.5 py-0.5 rounded-full border border-amber-200 dark:border-amber-500/30">
                         {finding.severity}
                       </span>
                     )}
                   </div>
                 </div>
 
-                <p className="text-xs text-slate-300 leading-relaxed">
+                <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
                   {finding.summary}
                 </p>
 
-                <div className="flex flex-wrap items-center justify-between gap-3 text-xs pt-1">
+                <div className="flex flex-wrap items-center justify-between gap-3 text-xs pt-1 border-t border-slate-100 dark:border-white/[0.04]">
                   <div>
                     {finding.fixedVersions.length > 0 ? (
-                      <span className="text-emerald-400 font-medium">
-                        Fixed in: <span className="font-mono">{finding.fixedVersions.join(', ')}</span>
+                      <span className="text-emerald-700 dark:text-emerald-400 font-medium">
+                        Patched in: <span className="font-mono text-slate-900 dark:text-white font-semibold">{finding.fixedVersions.join(', ')}</span>
                       </span>
                     ) : (
-                      <span className="text-slate-500 italic">No specific fix version registered</span>
+                      <span className="text-slate-500 italic">No specific fix version registered in advisory</span>
                     )}
                   </div>
 
@@ -381,28 +438,28 @@ export default function SecurityPage() {
                       href={finding.references[0]?.url || finding.references[0]}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center space-x-1 text-sky-400 hover:text-sky-300 hover:underline text-xs"
+                      className="inline-flex items-center space-x-1.5 text-cyan-700 dark:text-cyan-400 hover:text-cyan-800 dark:hover:text-cyan-300 hover:underline text-xs font-medium"
                     >
                       <span>Official Advisory</span>
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
 
           {/* Unresolved / Unverified Packages Section */}
           {securityResult.unresolved_packages && securityResult.unresolved_packages.length > 0 && (
-            <div className="bg-slate-800/40 border border-amber-500/30 rounded-xl p-4 text-xs space-y-1">
-              <div className="flex items-center space-x-1.5 font-semibold text-amber-400">
+            <div className="bg-white dark:bg-[#0f1422] border border-amber-300 dark:border-amber-500/30 rounded-2xl p-5 text-xs space-y-2 shadow-2xs dark:shadow-card">
+              <div className="flex items-center space-x-2 font-bold text-amber-700 dark:text-amber-400">
                 <HelpCircle className="w-4 h-4" />
                 <span>Unresolved / Unverified in OSV ({securityResult.unresolved_packages.length} packages):</span>
               </div>
-              <p className="text-slate-400 text-[11px]">
-                The following packages could not be conclusively verified against OSV (e.g. non-registry, transient query, or custom prefix):
+              <p className="text-slate-500 dark:text-slate-400 text-[11px] leading-relaxed">
+                The following packages could not be conclusively verified against OSV (e.g. non-registry packages, local modules, or custom scope prefixes):
               </p>
-              <div className="font-mono text-slate-300 bg-slate-900/60 p-2 rounded border border-slate-700/60 text-[11px]">
+              <div className="font-mono text-slate-800 dark:text-slate-300 bg-slate-50 dark:bg-[#070b14] p-3 rounded-xl border border-slate-200 dark:border-white/[0.05] text-[11px]">
                 {securityResult.unresolved_packages.join(', ')}
               </div>
             </div>

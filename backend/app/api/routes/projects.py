@@ -1,8 +1,10 @@
 import logging
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, Path
+from fastapi import APIRouter, Depends, HTTPException, Query, Path, Request
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
+from app.core.rate_limiter import limiter
 from app.db.session import get_db, check_db_connection
 from app.db.repository import ProjectRepository
 from app.schemas.project import (
@@ -67,9 +69,16 @@ async def get_database_status(db: Optional[Session] = Depends(get_db)):
 
 
 @router.post("", response_model=ProjectResponse, summary="Create or register a project")
-async def create_project(payload: ProjectCreate, repo: ProjectRepository = Depends(require_repo)):
+async def create_project(request: Request, payload: ProjectCreate, repo: ProjectRepository = Depends(require_repo)):
+    limiter.check_rate_limit(request, "projects_write", settings.RATE_LIMIT_PROJECTS_WRITE)
+    name = payload.name.strip()
+    if not name or len(name) > 255:
+        raise HTTPException(status_code=400, detail="Project name must be non-empty and at most 255 characters.")
+    if payload.description and len(payload.description) > 2000:
+        raise HTTPException(status_code=400, detail="Project description cannot exceed 2,000 characters.")
+
     project = repo.get_or_create_project(
-        name=payload.name,
+        name=name,
         ecosystem=payload.ecosystem,
         description=payload.description
     )

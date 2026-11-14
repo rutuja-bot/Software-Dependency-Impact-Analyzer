@@ -1,3 +1,4 @@
+import os
 import logging
 from typing import Generator, Optional
 from sqlalchemy import create_engine, text
@@ -5,6 +6,7 @@ from sqlalchemy.orm import sessionmaker, Session, declarative_base
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
 from app.core.config import settings
+from app.db.guard import validate_db_target
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +24,12 @@ def get_engine(db_url: Optional[str] = None):
     global _engine, _session_factory
     url = settings.DATABASE_URL if db_url is None else db_url
     if not url or not url.strip():
-        if getattr(settings, "ENVIRONMENT", "").lower() == "production":
-            raise RuntimeError("Production environment requires a configured DATABASE_URL. In-memory fallback is strictly disabled.")
+        env_name = getattr(settings, "ENVIRONMENT", "").lower()
+        if env_name in ("staging", "production"):
+            raise RuntimeError(
+                f"{env_name.capitalize()} environment requires a configured DATABASE_URL. "
+                "In-memory and default fallbacks are strictly disabled."
+            )
         return None
 
     if _engine is None or db_url is not None or str(_engine.url) != url:
@@ -32,6 +38,20 @@ def get_engine(db_url: Optional[str] = None):
                 _engine.dispose()
             except Exception:
                 pass
+
+        # Normalize postgres:// scheme to postgresql:// for SQLAlchemy compatibility
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql://", 1)
+
+        # Validate database target safety before creating SQLAlchemy engine
+        approved_host = os.getenv("APPROVED_STAGING_HOST")
+        validate_db_target(
+            url=url,
+            environment=getattr(settings, "ENVIRONMENT", "development"),
+            approved_host=approved_host,
+            is_migration=False
+        )
+
         engine_kwargs = {
             "echo": settings.DB_ECHO,
             "future": True,

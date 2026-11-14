@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app.core.config import settings
 from app.db.session import Base
+from app.db.guard import validate_db_target, resolve_migration_target
 import app.db.models  # Load all models into Base.metadata
 
 # this is the Alembic Config object, which provides
@@ -26,8 +27,31 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 def get_url():
-    # Priority: settings.DATABASE_URL -> alembic.ini
-    url = settings.DATABASE_URL or config.get_main_option("sqlalchemy.url")
+    # Strict resolution: Never fallback to alembic.ini placeholder
+    url = settings.DATABASE_URL
+    if not url or not url.strip():
+        raise RuntimeError(
+            "Alembic migration stopped: DATABASE_URL is not configured. "
+            "Falling back to the alembic.ini placeholder is strictly disabled."
+        )
+
+    # Validate against migration safety guard
+    approved_host = os.getenv("APPROVED_STAGING_HOST")
+    staging_migration = os.getenv("STAGING_MIGRATION", "").lower() in ("1", "true", "yes")
+    env_name = getattr(settings, "ENVIRONMENT", "development")
+
+    target_env = resolve_migration_target(
+        settings_env=env_name,
+        approved_host=approved_host,
+        staging_migration=staging_migration
+    )
+
+    validate_db_target(
+        url=url,
+        environment=target_env,
+        approved_host=approved_host,
+        is_migration=True
+    )
     return url
 
 def run_migrations_offline() -> None:

@@ -132,6 +132,13 @@ class OsvSecurityService:
                     vulnerabilities=parsed_vulns
                 )
 
+            elif response.status_code == 429:
+                return PackageSecurityResult(
+                    package_name=clean_name,
+                    version=clean_version,
+                    status="error",
+                    error_message=f"OSV HTTP 429: Rate limit exceeded by upstream provider ({response.text[:80]}). Please retry shortly."
+                )
             elif response.status_code == 404:
                 return PackageSecurityResult(
                     package_name=clean_name,
@@ -179,6 +186,8 @@ class OsvSecurityService:
         warnings: List[str] = []
 
         seen_queries: Dict[str, PackageSecurityResult] = {}
+        max_external_queries = getattr(settings, "MAX_EXTERNAL_SCAN_PACKAGES", 75)
+        queries_executed = 0
 
         for pkg in packages:
             name = (pkg.get("name") or "").strip()
@@ -204,7 +213,21 @@ class OsvSecurityService:
                 results.append(seen_queries[query_key])
                 continue
 
+            if queries_executed >= max_external_queries:
+                res = PackageSecurityResult(
+                    package_name=name,
+                    version=version,
+                    status="unresolved",
+                    error_message=f"OSV scan deferred: per-request batch limit of {max_external_queries} external queries reached."
+                )
+                seen_queries[query_key] = res
+                results.append(res)
+                unresolved.append(name)
+                warnings.append(f"Package '{name}' was deferred because the scan exceeded {max_external_queries} external queries.")
+                continue
+
             result = self.query_package(name, version)
+            queries_executed += 1
             seen_queries[query_key] = result
             results.append(result)
 
