@@ -10,6 +10,7 @@ from app.schemas.graph import (
     GraphAnalysisResponse,
     DownstreamImpactResponse
 )
+from app.schemas.impact import ImpactExplorerResponse
 from app.parsers.nodejs import NormalizedProjectManifest
 
 class DependencyGraphService:
@@ -239,4 +240,121 @@ class DependencyGraphService:
             affected_packages=affected_list,
             affected_count=len(affected_list),
             reverse_dependency_paths=sample_paths
+        )
+
+    def explore_impact(
+        self,
+        G: nx.DiGraph,
+        target_package: str,
+        max_paths: int = 50,
+        security_findings: Optional[List[Any]] = None
+    ) -> ImpactExplorerResponse:
+        """
+        Comprehensive Dependency Impact Explorer traversal.
+
+        Distinguishes:
+        1. Direct Dependencies: Outgoing edges (Target -> Package, packages the target depends on)
+        2. Direct Dependents: Incoming edges (Package -> Target, packages that directly depend on target)
+        3. Transitive Dependents: Cascade reachability in reverse graph R with distance >= 2
+        4. All Downstream Affected Packages: All reachable nodes in R
+        5. Exact shortest dependency paths connecting affected packages down to target
+        """
+        if target_package not in G:
+            return ImpactExplorerResponse(
+                target_package=target_package,
+                target_node=None,
+                direct_dependencies=[],
+                direct_dependencies_count=0,
+                direct_dependents=[],
+                direct_dependents_count=0,
+                transitive_dependents=[],
+                transitive_dependents_count=0,
+                all_downstream_affected=[],
+                total_affected_count=0,
+                dependency_paths={}
+            )
+
+        def _make_node(name: str) -> PackageNode:
+            data = G.nodes[name] if name in G else {}
+            return PackageNode(
+                name=name,
+                version=data.get("version"),
+                is_root=bool(data.get("is_root", False)),
+                dep_type=data.get("dep_type", DependencyType.TRANSITIVE),
+                depth=data.get("depth"),
+                out_degree=G.out_degree(name) if name in G else 0,
+                in_degree=G.in_degree(name) if name in G else 0
+            )
+
+        target_node = _make_node(target_package)
+
+        # 1. Direct dependencies: Outgoing edges (target -> dep)
+        outgoing_names = sorted(list(G.successors(target_package)))
+        direct_dependencies = [_make_node(name) for name in outgoing_names]
+
+        # 2. Direct dependents: Incoming edges (dep -> target)
+        incoming_names = sorted(list(G.predecessors(target_package)))
+        direct_dependents = [_make_node(name) for name in incoming_names]
+
+        # 3. Transitive dependents via reverse graph traversal (R: edges flipped)
+        R = G.reverse(copy=False)
+        try:
+            lengths_in_R = nx.single_source_shortest_path_length(R, target_package)
+        except Exception:
+            lengths_in_R = {target_package: 0}
+
+        transitive_names: List[str] = []
+        for node, dist in lengths_in_R.items():
+            if node != target_package and dist >= 2:
+                transitive_names.append(node)
+        transitive_names.sort()
+        transitive_dependents = [_make_node(name) for name in transitive_names]
+
+        # 4. All downstream affected packages (all nodes in R with dist >= 1)
+        all_affected = sorted([node for node, dist in lengths_in_R.items() if node != target_package])
+
+        # 5. Exact dependency paths from affected packages down to target
+        dependency_paths: Dict[str, List[List[str]]] = {}
+        for aff in all_affected[:max_paths]:
+            try:
+                # In original graph G: path goes aff -> ... -> target_package
+                p = nx.shortest_path(G, source=aff, target=target_package)
+                dependency_paths[aff] = [p]
+            except Exception:
+                pass
+
+        # 6. Security status for target if findings provided
+        vuln_status = "clean"
+        vuln_count = 0
+        advisories: List[Dict[str, Any]] = []
+
+        if security_findings:
+            for f in security_findings:
+                pkg_name = f.get("package_name") if isinstance(f, dict) else getattr(f, "package_name", None)
+                scan_status = f.get("scan_status") if isinstance(f, dict) else getattr(f, "scan_status", "clean")
+                if pkg_name == target_package and scan_status == "vulnerable":
+                    vuln_count += 1
+                    vuln_id = f.get("vuln_id") if isinstance(f, dict) else getattr(f, "vuln_id", "VULN")
+                    summary = f.get("summary") if isinstance(f, dict) else getattr(f, "summary", "")
+                    severity = f.get("severity") if isinstance(f, dict) else getattr(f, "severity", None)
+                    advisories.append({"id": vuln_id, "summary": summary, "severity": severity})
+
+            if vuln_count > 0:
+                vuln_status = "vulnerable"
+
+        return ImpactExplorerResponse(
+            target_package=target_package,
+            target_node=target_node,
+            direct_dependencies=direct_dependencies,
+            direct_dependencies_count=len(direct_dependencies),
+            direct_dependents=direct_dependents,
+            direct_dependents_count=len(direct_dependents),
+            transitive_dependents=transitive_dependents,
+            transitive_dependents_count=len(transitive_dependents),
+            all_downstream_affected=all_affected,
+            total_affected_count=len(all_affected),
+            dependency_paths=dependency_paths,
+            vulnerability_status=vuln_status,
+            vulnerabilities_count=vuln_count,
+            vulnerability_advisories=advisories
         )

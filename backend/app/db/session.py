@@ -15,13 +15,14 @@ Base = declarative_base()
 
 _engine = None
 _session_factory = None
+_engine_url = None
 
 def get_engine(db_url: Optional[str] = None):
     """
     Initializes or returns the SQLAlchemy Engine.
     Ensures connection pooling for PostgreSQL.
     """
-    global _engine, _session_factory
+    global _engine, _session_factory, _engine_url
     url = settings.DATABASE_URL if db_url is None else db_url
     if not url or not url.strip():
         env_name = getattr(settings, "ENVIRONMENT", "").lower()
@@ -32,7 +33,7 @@ def get_engine(db_url: Optional[str] = None):
             )
         return None
 
-    if _engine is None or db_url is not None or str(_engine.url) != url:
+    if _engine is None or db_url is not None or _engine_url != url:
         if _engine is not None and db_url is None:
             try:
                 _engine.dispose()
@@ -58,16 +59,21 @@ def get_engine(db_url: Optional[str] = None):
         }
         # Connection pooling configuration for network databases
         if url.startswith("postgresql"):
+            connect_timeout = getattr(settings, "DB_CONNECT_TIMEOUT_SECONDS", 3.0)
             engine_kwargs.update({
                 "pool_size": settings.DB_POOL_SIZE,
                 "max_overflow": settings.DB_MAX_OVERFLOW,
                 "pool_timeout": settings.DB_POOL_TIMEOUT,
                 "pool_pre_ping": True,  # Verifies connection liveness before checkout
+                "connect_args": {
+                    "connect_timeout": int(connect_timeout)
+                }
             })
 
         eng = create_engine(url, **engine_kwargs)
         if db_url is None:
             _engine = eng
+            _engine_url = url
             _session_factory = sessionmaker(autocommit=False, autoflush=False, bind=_engine, future=True)
             return _engine
         return eng

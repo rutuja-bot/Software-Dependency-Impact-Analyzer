@@ -34,9 +34,11 @@ export function AnalysisProvider({ children }) {
   const [analysisResult, setAnalysisResult] = useState(null);
   const [currentAnalysisId, setCurrentAnalysisId] = useState(null);
   const [simulationResult, setSimulationResult] = useState(null);
+  const [comparisonResult, setComparisonResult] = useState(null);
   const [securityResult, setSecurityResult] = useState(null);
   const [freshnessResult, setFreshnessResult] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
+  const [highlightedImpact, setHighlightedImpact] = useState(null);
 
   // UI Flow State
   const [isLoading, setIsLoading] = useState(false);
@@ -130,9 +132,25 @@ export function AnalysisProvider({ children }) {
     }
   };
 
+  // Direct Pipeline Import Success (GitHub, ZIP, or Folder)
+  const handleImportSuccess = (importedData) => {
+    setAnalysisResult(importedData);
+    if (importedData.analysis_id) {
+      setCurrentAnalysisId(importedData.analysis_id);
+    }
+    setSimulationResult(null);
+    setComparisonResult(null);
+    setSecurityResult(null);
+    setFreshnessResult(null);
+    setSelectedNode(null);
+    setHighlightedImpact(null);
+    setErrorMessage(null);
+  };
+
   // Simulation Handlers
-  const handleSimulationSuccess = (simRes) => {
+  const handleSimulationSuccess = (simRes, compRes = null) => {
     setSimulationResult(simRes);
+    setComparisonResult(compRes);
     if (simRes.target_package) {
       setSelectedNode(simRes.target_package);
     }
@@ -140,6 +158,7 @@ export function AnalysisProvider({ children }) {
 
   const handleResetSimulation = () => {
     setSimulationResult(null);
+    setComparisonResult(null);
   };
 
   // Load Historical Snapshot with Associated Security & Freshness Hydration
@@ -280,15 +299,20 @@ export function AnalysisProvider({ children }) {
     currentAnalysisId,
     simulationResult,
     setSimulationResult,
+    comparisonResult,
+    setComparisonResult,
     securityResult,
     setSecurityResult,
     freshnessResult,
     setFreshnessResult,
     selectedNode,
     setSelectedNode,
+    highlightedImpact,
+    setHighlightedImpact,
 
     // Actions
     handleAnalyze,
+    handleImportSuccess,
     handleSimulationSuccess,
     handleResetSimulation,
     handleLoadSnapshot,

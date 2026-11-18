@@ -45,6 +45,15 @@ class CycleDetail(BaseModel):
 class GraphAnalysisResponse(BaseModel):
     project_name: str
     project_version: Optional[str] = None
+    analysis_id: Optional[str] = Field(None, description="Persisted analysis record ID if stored in database")
+    import_source: Optional[str] = Field("manifest_upload", description="Source of project: github, folder_upload, manifest_upload")
+    repository_url: Optional[str] = None
+    branch_name: Optional[str] = None
+    commit_sha: Optional[str] = None
+    has_lockfile: bool = False
+    lockfile_version: Optional[int] = None
+    risk_score: Optional[float] = None
+    risk_category: Optional[str] = None
     stats: GraphOverviewStats
     nodes: List[PackageNode]
     edges: List[DependencyEdge]

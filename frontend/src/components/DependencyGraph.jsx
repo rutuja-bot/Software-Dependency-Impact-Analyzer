@@ -26,11 +26,12 @@ export default function DependencyGraph({
   selectedNode,
   diff = null,
   isSimulated = false,
-  securityResult = null
+  securityResult = null,
+  highlightedImpact = null
 }) {
   const containerRef = useRef(null);
   const cyRef = useRef(null);
-  const [legendOpen, setLegendOpen] = useState(true);
+  const [legendOpen, setLegendOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 768 : true));
   const [layoutName, setLayoutName] = useState('cose');
   const [graphSearchQuery, setGraphSearchQuery] = useState('');
   const { isDark } = useTheme();
@@ -95,47 +96,71 @@ export default function DependencyGraph({
 
     // Add nodes
     nodes.forEach((n) => {
-      let nodeColor = '#38bdf8'; // Sky blue for transitive
-      let borderColor = isDark ? '#1e293b' : '#cbd5e1';
+      // Official Dependency Graph Palette
+      // - Project root: Technical Teal (#19B6A4)
+      // - Direct dependencies: Steel Blue (#4C8DCE)
+      // - Transitive dependencies: Lighter cyan/blue (#38BDF8)
+      // - Vulnerable packages: Critical Red (#F05252)
+      // - Added simulation nodes: Green (#22C55E)
+      // - Removed simulation nodes: Red (#F05252)
+      // - Orphaned packages: Amber (#F59E0B)
+      let nodeColor = '#38BDF8'; // Lighter cyan/blue for transitive
+      let borderColor = isDark ? '#26364D' : '#cbd5e1';
       let borderWidth = 2;
 
       const isVulnerable = vulnerableMap.has(n.name);
 
       if (n.is_root) {
-        nodeColor = '#10b981'; // Emerald for root
-        borderColor = '#059669';
+        nodeColor = '#19B6A4'; // Technical Teal for root
+        borderColor = '#149989';
         borderWidth = 3.5;
       } else if (n.dep_type === 'direct') {
-        nodeColor = '#818cf8'; // Indigo for direct
-        borderColor = '#4f46e5';
+        nodeColor = '#4C8DCE'; // Steel Blue for direct
+        borderColor = '#2c5e94';
+        borderWidth = 2.5;
       } else if (n.dep_type === 'dev') {
-        nodeColor = '#f59e0b'; // Amber for dev
+        nodeColor = '#F59E0B'; // Amber for dev
         borderColor = '#d97706';
       }
 
-      // Vulnerability overlay takes precedence for alerting
+      // Vulnerability overlay takes precedence for alerting (Critical Red)
       if (isVulnerable) {
-        borderColor = '#f43f5e'; // Rose-500 red border
-        borderWidth = 3.5;
+        borderColor = '#F05252'; // Critical Red border
+        borderWidth = 4;
       }
 
       // Diff styling
+      const isVersionModified = Boolean(diff?.version_changes && diff.version_changes[n.name]);
+
       if (addedNodesSet.has(n.name)) {
-        nodeColor = '#10b981';
-        borderColor = '#34d399';
+        nodeColor = '#22C55E'; // Green for added
+        borderColor = '#16a34a';
+        borderWidth = 3.5;
+      } else if (isVersionModified) {
+        nodeColor = '#4C8DCE'; // Steel Blue for modified package version
+        borderColor = '#2c5e94';
         borderWidth = 3.5;
       } else if (orphanedNodesSet.has(n.name)) {
-        nodeColor = '#f97316';
-        borderColor = '#fb923c';
+        nodeColor = '#F59E0B'; // Amber for orphaned
+        borderColor = '#d97706';
         borderWidth = 3;
       }
 
+      // Vulnerability overlay takes precedence for alerting (Critical Red)
+      if (isVulnerable) {
+        borderColor = '#F05252'; // Critical Red border
+        borderWidth = 4;
+      }
+
+      const modSuffix = isVersionModified
+        ? ` [v${diff.version_changes[n.name].original_version}→v${diff.version_changes[n.name].simulated_version}]`
+        : '';
       const vulnSuffix = isVulnerable ? ` [⚠️ ${vulnerableMap.get(n.name).length} VULN]` : '';
 
       elements.push({
         data: {
           id: n.name,
-          label: n.name + (addedNodesSet.has(n.name) ? ' [NEW]' : '') + (orphanedNodesSet.has(n.name) ? ' [ORPHAN]' : '') + vulnSuffix,
+          label: n.name + (addedNodesSet.has(n.name) ? ' [NEW]' : '') + modSuffix + (orphanedNodesSet.has(n.name) ? ' [ORPHAN]' : '') + vulnSuffix,
           version: n.version || 'unknown',
           isRoot: n.is_root,
           depType: n.dep_type,
@@ -158,8 +183,8 @@ export default function DependencyGraph({
             isRoot: false,
             depType: 'removed',
             depth: 0,
-            color: '#ef4444',
-            borderColor: '#f87171',
+            color: '#F05252',
+            borderColor: '#dc2626',
             borderWidth: 3,
           },
           classes: 'ghost-removed',
@@ -170,13 +195,13 @@ export default function DependencyGraph({
     // Add active edges: A -> B means A depends on B
     edges.forEach((e, idx) => {
       const edgeKey = `${e.source}->${e.target}`;
-      let lineColor = isDark ? '#475569' : '#94a3b8';
-      let arrowColor = isDark ? '#64748b' : '#64748b';
+      let lineColor = isDark ? '#334155' : '#94a3b8';
+      let arrowColor = isDark ? '#64748B' : '#64748B';
       let edgeWidth = 1.5;
 
       if (addedEdgesKeySet.has(edgeKey)) {
-        lineColor = '#10b981';
-        arrowColor = '#34d399';
+        lineColor = '#22C55E';
+        arrowColor = '#16a34a';
         edgeWidth = 3;
       }
 
@@ -202,8 +227,8 @@ export default function DependencyGraph({
             source: re.source,
             target: re.target,
             label: '[REMOVED]',
-            lineColor: '#ef4444',
-            arrowColor: '#f87171',
+            lineColor: '#F05252',
+            arrowColor: '#dc2626',
             edgeWidth: 2,
           },
           classes: 'ghost-removed-edge',
@@ -261,7 +286,7 @@ export default function DependencyGraph({
             'text-valign': 'bottom',
             'text-margin-y': 7,
             'text-halign': 'center',
-            'text-outline-color': isDark ? '#080c16' : '#ffffff',
+            'text-outline-color': isDark ? '#0B1220' : '#ffffff',
             'text-outline-width': isDark ? 3 : 2.5,
             'text-max-width': '150px',
             'text-wrap': 'wrap',
@@ -278,17 +303,17 @@ export default function DependencyGraph({
           style: {
             'background-opacity': 0.6,
             'border-style': 'dashed',
-            'color': '#fca5a5',
+            'color': '#F05252',
           },
         },
         {
           selector: 'node:selected',
           style: {
             'border-width': 4,
-            'border-color': '#06b6d4',
-            'background-color': '#22d3ee',
-            'shadow-blur': 18,
-            'shadow-color': '#06b6d4',
+            'border-color': '#19B6A4',
+            'background-color': '#19B6A4',
+            'shadow-blur': 14,
+            'shadow-color': 'rgba(25, 182, 164, 0.4)',
             'shadow-opacity': 0.85,
             'z-index': 100,
           },
@@ -297,9 +322,9 @@ export default function DependencyGraph({
           selector: 'node.highlighted',
           style: {
             'border-width': 4,
-            'border-color': '#06b6d4',
-            'shadow-blur': 20,
-            'shadow-color': '#06b6d4',
+            'border-color': '#19B6A4',
+            'shadow-blur': 16,
+            'shadow-color': 'rgba(25, 182, 164, 0.45)',
             'shadow-opacity': 0.9,
             'z-index': 99,
           },
@@ -307,11 +332,33 @@ export default function DependencyGraph({
         {
           selector: 'edge.highlighted',
           style: {
-            'line-color': '#06b6d4',
-            'target-arrow-color': '#06b6d4',
+            'line-color': '#19B6A4',
+            'target-arrow-color': '#19B6A4',
             'width': 2.75,
             'opacity': 1,
             'z-index': 98,
+          },
+        },
+        {
+          selector: 'node.impact-affected',
+          style: {
+            'border-width': 4,
+            'border-color': '#F05252',
+            'background-color': '#F05252',
+            'shadow-blur': 18,
+            'shadow-color': 'rgba(240, 82, 82, 0.5)',
+            'shadow-opacity': 0.95,
+            'z-index': 101,
+          },
+        },
+        {
+          selector: 'edge.impact-path',
+          style: {
+            'line-color': '#F05252',
+            'target-arrow-color': '#F05252',
+            'width': 3.5,
+            'opacity': 1,
+            'z-index': 100,
           },
         },
         {
@@ -448,7 +495,50 @@ export default function DependencyGraph({
     if (!cyRef.current) return;
     const cy = cyRef.current;
     cy.nodes().unselect();
-    cy.elements().removeClass('highlighted dimmed');
+    cy.elements().removeClass('highlighted dimmed impact-affected impact-path');
+
+    if (highlightedImpact && highlightedImpact.target) {
+      cy.elements().addClass('dimmed');
+      const target = cy.getElementById(highlightedImpact.target);
+      if (target.length > 0) {
+        target.removeClass('dimmed').addClass('highlighted');
+        target.select();
+      }
+
+      const affectedList = highlightedImpact.affected || [];
+      affectedList.forEach((pkgName) => {
+        const ele = cy.getElementById(pkgName);
+        if (ele.length > 0) {
+          ele.removeClass('dimmed').addClass('impact-affected');
+        }
+      });
+
+      // Highlight path edges
+      if (highlightedImpact.paths) {
+        Object.values(highlightedImpact.paths).forEach((pathList) => {
+          pathList.forEach((path) => {
+            for (let i = 0; i < path.length - 1; i++) {
+              const u = path[i];
+              const v = path[i + 1];
+              cy.edges().forEach((edge) => {
+                if (edge.data('source') === u && edge.data('target') === v) {
+                  edge.removeClass('dimmed').addClass('impact-path');
+                }
+              });
+            }
+          });
+        });
+      }
+
+      if (target.length > 0) {
+        cy.animate({
+          center: { eles: target },
+          duration: shouldReduceMotion ? 0 : 250,
+          easing: 'ease-out'
+        });
+      }
+      return;
+    }
 
     if (selectedNode) {
       const target = cy.getElementById(selectedNode);
@@ -469,7 +559,7 @@ export default function DependencyGraph({
         });
       }
     }
-  }, [selectedNode, shouldReduceMotion]);
+  }, [selectedNode, highlightedImpact, shouldReduceMotion]);
 
   // Canvas Control Handlers with smooth camera animations
   const handleZoomIn = () => {
@@ -534,7 +624,7 @@ export default function DependencyGraph({
   const handleExportPng = () => {
     if (!cyRef.current) return;
     try {
-      const pngUri = cyRef.current.png({ full: true, scale: 2, bg: isDark ? '#080c16' : '#ffffff' });
+      const pngUri = cyRef.current.png({ full: true, scale: 2, bg: isDark ? '#0B1220' : '#ffffff' });
       const a = document.createElement('a');
       a.href = pngUri;
       a.download = `dependency-graph-${Date.now()}.png`;
@@ -545,7 +635,7 @@ export default function DependencyGraph({
   };
 
   return (
-    <div className="relative w-full h-[560px] bg-slate-100 dark:bg-[#070b14] rounded-2xl border border-slate-200 dark:border-white/[0.08] overflow-hidden shadow-inner group transition-colors duration-200">
+    <div className="relative w-full h-[400px] sm:h-[480px] lg:h-[560px] bg-slate-100 dark:bg-[#0B1220] rounded-2xl border border-slate-200 dark:border-[#26364D] overflow-hidden shadow-inner group transition-colors duration-200">
 
       {/* Background Grid Accent */}
       <div className="absolute inset-0 bg-grid-pattern opacity-40 pointer-events-none"></div>
@@ -557,33 +647,33 @@ export default function DependencyGraph({
       <div className="absolute top-3.5 left-3.5 right-3.5 flex flex-wrap items-center justify-between gap-2 pointer-events-none z-10">
 
         {/* In-Canvas Search Filter */}
-        <div className="pointer-events-auto relative w-48 sm:w-64">
+        <div className="pointer-events-auto relative w-36 sm:w-64">
           <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
           <input
             type="text"
             value={graphSearchQuery}
             onChange={(e) => setGraphSearchQuery(e.target.value)}
             placeholder="Filter node in canvas..."
-            className="w-full bg-white/95 dark:bg-[#0c111e]/95 backdrop-blur-md border border-slate-200 dark:border-white/[0.1] rounded-xl pl-9 pr-3 py-1.5 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500/60 shadow-md font-mono transition"
+            className="w-full bg-white/95 dark:bg-[#111C2E]/95 backdrop-blur-md border border-slate-200 dark:border-[#26364D] rounded-xl pl-9 pr-3 py-1.5 text-xs sm:text-sm text-slate-900 dark:text-[#F1F5F9] placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#19B6A4] shadow-md font-mono transition"
           />
         </div>
 
         {/* Action Controls & Layout Switcher */}
-        <div className="pointer-events-auto flex items-center space-x-1.5 bg-white/95 dark:bg-[#0c111e]/95 backdrop-blur-md border border-slate-200 dark:border-white/[0.1] p-1.5 rounded-xl shadow-lg transition-colors duration-200 text-sm">
+        <div className="pointer-events-auto flex items-center space-x-1 sm:space-x-1.5 bg-white/95 dark:bg-[#111C2E]/95 backdrop-blur-md border border-slate-200 dark:border-[#26364D] p-1 sm:p-1.5 rounded-xl shadow-lg transition-colors duration-200 text-xs sm:text-sm">
           {/* Layout Switcher Dropdown */}
           <select
             value={layoutName}
             onChange={(e) => setLayoutName(e.target.value)}
             title="Change graph layout algorithm"
-            className="bg-transparent text-slate-700 dark:text-slate-300 font-medium px-2 py-1 rounded-lg focus:outline-none cursor-pointer text-sm"
+            className="bg-transparent text-slate-700 dark:text-[#F1F5F9] font-medium px-1.5 sm:px-2 py-1 rounded-lg focus:outline-none cursor-pointer text-xs sm:text-sm"
           >
-            <option value="cose" className="dark:bg-slate-900">Force (COSE)</option>
-            <option value="breadthfirst" className="dark:bg-slate-900">Hierarchy (Tree)</option>
-            <option value="concentric" className="dark:bg-slate-900">Concentric Rings</option>
-            <option value="circle" className="dark:bg-slate-900">Radial Circle</option>
+            <option value="cose" className="dark:bg-[#111C2E]">Force (COSE)</option>
+            <option value="breadthfirst" className="dark:bg-[#111C2E]">Hierarchy (Tree)</option>
+            <option value="concentric" className="dark:bg-[#111C2E]">Concentric Rings</option>
+            <option value="circle" className="dark:bg-[#111C2E]">Radial Circle</option>
           </select>
 
-          <div className="w-[1px] h-4 bg-slate-200 dark:bg-slate-700/80 mx-0.5" />
+          <div className="w-[1px] h-4 bg-slate-200 dark:bg-[#26364D] mx-0.5" />
 
           {/* Zoom In */}
           <motion.button
@@ -592,9 +682,9 @@ export default function DependencyGraph({
             whileTap={shouldReduceMotion ? {} : { scale: 0.92 }}
             title="Zoom In"
             aria-label="Zoom In"
-            className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800/80 rounded-lg transition"
+            className="p-1 sm:p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-[#172438] rounded-lg transition"
           >
-            <ZoomIn className="w-4 h-4" />
+            <ZoomIn className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </motion.button>
 
           {/* Zoom Out */}
@@ -604,9 +694,9 @@ export default function DependencyGraph({
             whileTap={shouldReduceMotion ? {} : { scale: 0.92 }}
             title="Zoom Out"
             aria-label="Zoom Out"
-            className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800/80 rounded-lg transition"
+            className="p-1 sm:p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-[#172438] rounded-lg transition"
           >
-            <ZoomOut className="w-4 h-4" />
+            <ZoomOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </motion.button>
 
           {/* Fit Viewport */}
@@ -616,9 +706,9 @@ export default function DependencyGraph({
             whileTap={shouldReduceMotion ? {} : { scale: 0.92 }}
             title="Fit Graph to Viewport"
             aria-label="Fit Graph to Viewport"
-            className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800/80 rounded-lg transition"
+            className="p-1 sm:p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-[#172438] rounded-lg transition"
           >
-            <Maximize2 className="w-4 h-4" />
+            <Maximize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </motion.button>
 
           {/* Reset Zoom & Pan */}
@@ -628,12 +718,12 @@ export default function DependencyGraph({
             whileTap={shouldReduceMotion ? {} : { scale: 0.92 }}
             title="Reset Zoom & Pan"
             aria-label="Reset Zoom & Pan"
-            className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800/80 rounded-lg transition"
+            className="p-1 sm:p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-[#172438] rounded-lg transition"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </motion.button>
 
-          <div className="w-[1px] h-4 bg-slate-200 dark:bg-slate-700/80 mx-0.5" />
+          <div className="w-[1px] h-4 bg-slate-200 dark:bg-[#26364D] mx-0.5" />
 
           {/* Export PNG */}
           <motion.button
@@ -642,24 +732,24 @@ export default function DependencyGraph({
             whileTap={shouldReduceMotion ? {} : { scale: 0.92 }}
             title="Export high-resolution PNG"
             aria-label="Export high-resolution PNG"
-            className="p-1.5 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/40 rounded-lg transition"
+            className="p-1 sm:p-1.5 text-[#19B6A4] hover:bg-teal-50 dark:hover:bg-[#172438] rounded-lg transition"
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </motion.button>
         </div>
       </div>
 
       {/* Floating Canvas Legend */}
-      <div className="absolute bottom-3.5 left-3.5 bg-white/95 dark:bg-[#0c111e]/95 backdrop-blur-md border border-slate-200 dark:border-white/[0.1] rounded-2xl text-xs sm:text-[13px] shadow-lg z-10 transition-colors duration-200 overflow-hidden max-w-[310px]">
+      <div className="absolute bottom-3.5 left-3.5 bg-white/95 dark:bg-[#111C2E]/95 backdrop-blur-md border border-slate-200 dark:border-[#26364D] rounded-2xl text-xs sm:text-[13px] shadow-lg z-10 transition-colors duration-200 overflow-hidden max-w-[calc(100%-1.75rem)] sm:max-w-[320px]">
         <div
           onClick={() => setLegendOpen(!legendOpen)}
-          className="flex items-center justify-between px-3.5 py-2.5 cursor-pointer border-b border-slate-200 dark:border-white/[0.06] hover:bg-slate-50 dark:hover:bg-slate-800/40 select-none"
+          className="flex items-center justify-between px-3.5 py-2.5 cursor-pointer border-b border-slate-200 dark:border-[#26364D] hover:bg-slate-50 dark:hover:bg-[#172438]/60 select-none"
         >
-          <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs sm:text-[13px] flex items-center space-x-2">
-            <Layers className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+          <span className="font-semibold text-slate-800 dark:text-[#F1F5F9] text-xs sm:text-[13px] flex items-center space-x-2">
+            <Layers className="w-4 h-4 text-[#19B6A4]" />
             <span>Graph Legend {isSimulated ? '(Simulation)' : ''}</span>
           </span>
-          <span className="text-xs text-slate-400 dark:text-slate-500 font-mono ml-3">
+          <span className="text-xs text-[#94A3B8] font-mono ml-3">
             {legendOpen ? 'Collapse' : 'Expand'}
           </span>
         </div>
@@ -674,37 +764,45 @@ export default function DependencyGraph({
               className="p-3.5 space-y-2 text-xs sm:text-[13px] overflow-hidden"
             >
               <div className="flex items-center space-x-2.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-2xs inline-block"></span>
-                <span className="text-slate-700 dark:text-slate-300 font-medium">Project Root / Consumer</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-[#19B6A4] shadow-xs inline-block"></span>
+                <span className="text-slate-700 dark:text-[#F1F5F9] font-medium">Project Root (Technical Teal)</span>
               </div>
               <div className="flex items-center space-x-2.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 dark:bg-indigo-400 shadow-2xs inline-block"></span>
-                <span className="text-slate-700 dark:text-slate-300 font-medium">Direct Dependency</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-[#4C8DCE] shadow-xs inline-block"></span>
+                <span className="text-slate-700 dark:text-[#F1F5F9] font-medium">Direct Dependency (Steel Blue)</span>
               </div>
               <div className="flex items-center space-x-2.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-sky-500 dark:bg-sky-400 shadow-2xs inline-block"></span>
-                <span className="text-slate-700 dark:text-slate-300 font-medium">Transitive Dependency</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-[#38BDF8] shadow-xs inline-block"></span>
+                <span className="text-slate-700 dark:text-[#F1F5F9] font-medium">Transitive Dependency (Cyan/Blue)</span>
               </div>
               <div className="flex items-center space-x-2.5">
-                <span className="w-2.5 h-2.5 rounded-full border-2 border-rose-500 bg-transparent inline-block"></span>
-                <span className="text-rose-600 dark:text-rose-400 font-medium">Has Known Vulnerability</span>
+                <span className="w-2.5 h-2.5 rounded-full border-2 border-[#F05252] bg-transparent inline-block"></span>
+                <span className="text-[#F05252] font-medium">Vulnerable Package (Critical Red)</span>
+              </div>
+              <div className="flex items-center space-x-2.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#F59E0B] shadow-xs inline-block"></span>
+                <span className="text-slate-700 dark:text-[#F1F5F9] font-medium">Dev Dependency (Amber)</span>
               </div>
               {isSimulated && (
                 <>
-                  <div className="pt-1.5 border-t border-slate-200 dark:border-white/[0.06] mt-1.5">
-                    <span className="text-xs uppercase font-bold text-slate-400 dark:text-slate-500">Simulation Overlays</span>
+                  <div className="pt-1.5 border-t border-slate-200 dark:border-[#26364D] mt-1.5">
+                    <span className="text-xs uppercase font-bold text-[#64748B]">Simulation Overlays</span>
                   </div>
                   <div className="flex items-center space-x-2.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 dark:bg-emerald-400 inline-block"></span>
-                    <span className="text-emerald-700 dark:text-emerald-300 font-medium">+ Added Element</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#22C55E] inline-block"></span>
+                    <span className="text-[#22C55E] font-medium">+ Added Element (Green)</span>
                   </div>
                   <div className="flex items-center space-x-2.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span>
-                    <span className="text-rose-700 dark:text-rose-300 font-medium">- Removed Element</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#F05252] inline-block"></span>
+                    <span className="text-[#F05252] font-medium">- Removed Element (Red)</span>
                   </div>
                   <div className="flex items-center space-x-2.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
-                    <span className="text-amber-700 dark:text-amber-300 font-medium">~ Orphaned Package</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#4C8DCE] inline-block"></span>
+                    <span className="text-[#4C8DCE] font-medium">~ Modified Version (Steel Blue)</span>
+                  </div>
+                  <div className="flex items-center space-x-2.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#F59E0B] inline-block"></span>
+                    <span className="text-[#F59E0B] font-medium">~ Orphaned Package (Amber)</span>
                   </div>
                 </>
               )}

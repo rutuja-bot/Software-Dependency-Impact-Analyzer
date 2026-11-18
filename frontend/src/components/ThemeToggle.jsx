@@ -17,9 +17,9 @@ export default function ThemeToggle({ className = '' }) {
       transition={{ duration: 0.15, ease: easeSoft }}
       title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
       aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-      className={`relative inline-flex items-center justify-center p-2.5 rounded-xl border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60 ${
+      className={`relative inline-flex items-center justify-center p-2.5 rounded-xl border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#19B6A4]/60 ${
         isDark
-          ? 'bg-slate-800/90 hover:bg-slate-700/90 text-amber-300 border-white/[0.08] hover:border-amber-400/40 shadow-xs'
+          ? 'bg-[#111C2E] hover:bg-[#172438] text-amber-400 border-[#26364D] hover:border-[#19B6A4]/40 shadow-xs'
           : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 hover:border-slate-300 shadow-xs'
       } ${className}`}
     >

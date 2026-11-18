@@ -860,6 +860,36 @@ def test_api_project_and_history_endpoints(override_client):
     assert "status" in res_status.json()
 
 
+def test_database_unavailable_api_behavior():
+    """
+    Validates application behavior when database is unconfigured or unavailable:
+    1. /api/projects/status returns connected: False without crashing.
+    2. Endpoints requiring persistence fail gracefully with HTTP 503.
+    3. Graph analysis and simulation endpoints function fully in pure in-memory mode.
+    """
+    raw_client = TestClient(app)
+
+    # 1. Status endpoint reflects in-memory/disabled mode
+    res_status = raw_client.get("/api/projects/status")
+    assert res_status.status_code == 200
+    status_data = res_status.json()
+    assert status_data["connected"] is False
+    assert status_data["status"] in ("disabled", "unreachable")
+
+    # 2. Persistence-requiring endpoints return HTTP 503 Service Unavailable
+    res_proj = raw_client.post("/api/projects", json={"name": "test", "ecosystem": "npm"})
+    assert res_proj.status_code == 503
+    assert "Database persistence is not available" in res_proj.json()["detail"]
+
+    # 3. In-memory analysis functions normally
+    res_analyze = raw_client.post("/api/analyze", json={
+        "package_json": {"name": "offline-app", "dependencies": {}}
+    })
+    assert res_analyze.status_code == 200
+    assert res_analyze.json()["project_name"] == "offline-app"
+
+
+
 def test_backend_env_resolution():
     """Validates that backend/.env path is reliably resolved from config."""
     from pathlib import Path

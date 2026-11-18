@@ -85,7 +85,7 @@ export const simulateChange = async (operation, targetPackage, sourcePackage = n
 
 export const scanSecurity = async (analysisId = null) => {
   const params = analysisId ? { analysis_id: analysisId } : {};
-  const response = await api.post('/security/scan', null, { params });
+  const response = await api.post('/security/scan', null, { params, timeout: 60000 });
   return response.data;
 };
 
@@ -146,6 +146,77 @@ export const getAnalysisFreshness = async (analysisId) => {
 
 export const restoreAnalysisSnapshot = async (analysisId) => {
   const response = await api.post(`/analyses/${analysisId}/restore`);
+  return response.data;
+};
+
+// --- STAGE 1 Video Demonstration Endpoints ---
+
+export const exploreImpact = async (targetPackage, analysisId = null, maxPaths = 25) => {
+  const params = { target_package: targetPackage, max_paths: maxPaths };
+  if (analysisId) params.analysis_id = analysisId;
+  const response = await api.get('/impact/explore', { params });
+  return response.data;
+};
+
+export const getProjectRisk = async (analysisId = null) => {
+  if (analysisId) {
+    const response = await api.get(`/risk/${analysisId}`);
+    return response.data;
+  }
+  const response = await api.post('/risk/evaluate');
+  return response.data;
+};
+
+export const compareSimulation = async (
+  operation,
+  targetPackage,
+  sourcePackage = null,
+  version = null,
+  depType = 'direct',
+  analysisId = null
+) => {
+  const payload = {
+    operation,
+    target_package: targetPackage,
+    source_package: sourcePackage,
+    version,
+    dep_type: depType,
+  };
+  const params = analysisId ? { analysis_id: analysisId } : {};
+  const response = await api.post('/simulate/compare', payload, { params });
+  return response.data;
+};
+
+// --- STAGE 2 Multi-Source Project Import Endpoints ---
+
+export const importGitHubRepo = async (repoUrl, branch = null, authToken = null, persist = true) => {
+  const payload = {
+    repo_url: repoUrl,
+    branch: branch || null,
+    auth_token: authToken || null,
+    persist,
+  };
+  const response = await api.post('/import/github', payload);
+  return response.data;
+};
+
+export const getGitHubRepoInfo = async (repoUrl, authToken = null) => {
+  const payload = {
+    repo_url: repoUrl,
+    auth_token: authToken || null,
+  };
+  const response = await api.post('/import/repo-info', payload);
+  return response.data;
+};
+
+export const importProjectArchive = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await api.post('/import/archive', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
   return response.data;
 };
 

@@ -84,7 +84,10 @@ export default function SecurityPage() {
       });
     } catch (err) {
       console.error('Security scan failed', err);
-      const detail = err.response?.data?.detail || err.message || 'OSV security scan failed.';
+      const isTimeout = err.code === 'ECONNABORTED' || (err.message && err.message.toLowerCase().includes('timeout'));
+      const detail = isTimeout
+        ? 'The OSV vulnerability scan timed out while communicating with the upstream database. Please check your internet connection and retry.'
+        : (err.response?.data?.detail || err.message || 'OSV security scan failed.');
       setErrorMsg(detail);
     } finally {
       setIsScanning(false);
@@ -194,25 +197,25 @@ export default function SecurityPage() {
   return (
     <div className="space-y-6">
       {/* Header Card */}
-      <div className="bg-white dark:bg-[#0f1422] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-6 shadow-2xs dark:shadow-card space-y-5 transition-colors duration-200">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 dark:border-white/[0.06] pb-4">
+      <div className="bg-white dark:bg-[#172438] border border-slate-200/90 dark:border-[#26364D] rounded-2xl p-4 sm:p-6 shadow-2xs dark:shadow-card space-y-5 transition-colors duration-200">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 dark:border-[#26364D] pb-4">
           <div className="flex items-center space-x-3.5">
-            <div className="p-3 bg-rose-500/10 text-rose-500 dark:text-rose-400 rounded-xl border border-rose-500/20 shadow-glow-rose">
-              <ShieldAlert className="w-6 h-6 text-rose-500 dark:text-rose-400" />
+            <div className="p-3 bg-[#F05252]/10 text-[#F05252] rounded-xl border border-[#F05252]/20 shadow-glow-rose">
+              <ShieldAlert className="w-6 h-6 text-[#F05252]" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-[#F1F5F9] tracking-tight">
                   Security Analysis
                 </h2>
                 {isSimulatedActive && (
-                  <span className="text-xs font-mono bg-indigo-50 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 px-2.5 py-0.5 rounded-full font-semibold flex items-center space-x-1">
-                    <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                  <span className="text-xs font-mono bg-indigo-50 dark:bg-[#4C8DCE]/15 text-[#4C8DCE] border border-indigo-200 dark:border-[#4C8DCE]/30 px-2.5 py-0.5 rounded-full font-semibold flex items-center space-x-1">
+                    <Sparkles className="w-3.5 h-3.5 text-[#4C8DCE]" />
                     <span>Baseline Project Data</span>
                   </span>
                 )}
               </div>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+              <p className="text-sm text-slate-500 dark:text-[#94A3B8] mt-1 leading-relaxed">
                 Scan dependencies against Google's Open Source Vulnerabilities (OSV) database
               </p>
             </div>
@@ -225,7 +228,7 @@ export default function SecurityPage() {
             whileHover={isScanning || !analysisResult || isSimulatedActive ? {} : { scale: 1.02 }}
             whileTap={isScanning || !analysisResult || isSimulatedActive ? {} : { scale: 0.98 }}
             title={isSimulatedActive ? 'Reset simulation before running security scan on baseline' : ''}
-            className="flex items-center space-x-2 text-sm font-semibold bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-xl transition shadow-glow-rose duration-200"
+            className="w-full sm:w-auto justify-center flex items-center space-x-2 text-sm font-semibold bg-[#F05252] hover:bg-[#d94242] disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-xl transition shadow-glow-rose duration-200"
           >
             <Search className={`w-4 h-4 ${isScanning ? 'animate-spin' : ''}`} />
             <span>{isScanning ? 'Querying OSV Registry API...' : 'Scan OSV Vulnerabilities'}</span>
@@ -233,8 +236,8 @@ export default function SecurityPage() {
         </div>
 
         {isSimulatedActive && (
-          <div className="flex items-start space-x-2.5 text-sm text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 p-3.5 rounded-xl border border-amber-200 dark:border-amber-500/25">
-            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+          <div className="flex items-start space-x-2.5 text-sm text-[#F59E0B] bg-[#F59E0B]/10 p-3.5 rounded-xl border border-[#F59E0B]/30">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-[#F59E0B] mt-0.5" />
             <span className="leading-relaxed">
               <strong>What-If Simulation Active:</strong> Displayed vulnerability findings correspond to the verified <strong>baseline analysis ({analysisResult?.project_name})</strong>, not temporary in-memory simulation mutations. Scan actions are locked until the simulation is reset.
             </span>
@@ -248,9 +251,9 @@ export default function SecurityPage() {
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.2, ease: easeSoft }}
-              className="flex items-start space-x-2.5 text-sm text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-500/10 p-3.5 rounded-xl border border-rose-200 dark:border-rose-500/25 overflow-hidden"
+              className="flex items-start space-x-2.5 text-sm text-[#F05252] bg-[#F05252]/10 p-3.5 rounded-xl border border-[#F05252]/25 overflow-hidden"
             >
-              <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500 dark:text-rose-400 mt-0.5" />
+              <AlertTriangle className="w-4 h-4 shrink-0 text-[#F05252] mt-0.5" />
               <span>{errorMsg}</span>
             </motion.div>
           )}
@@ -258,37 +261,37 @@ export default function SecurityPage() {
 
         {/* Security Metric Counters */}
         {securityResult && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-1">
-            <div className="bg-slate-50 dark:bg-[#070b14] p-4.5 rounded-xl border border-slate-200/80 dark:border-white/[0.05]">
-              <div className="text-xs uppercase font-bold tracking-wider text-slate-500">Vulnerable Packages</div>
-              <div className={`text-3xl font-extrabold font-mono mt-1 ${securityResult.vulnerable_packages_count > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-1">
+            <div className="bg-slate-50 dark:bg-[#111C2E] p-4.5 rounded-xl border border-slate-200/80 dark:border-[#26364D]">
+              <div className="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-[#64748B]">Vulnerable Packages</div>
+              <div className={`text-3xl font-extrabold font-mono mt-1 ${securityResult.vulnerable_packages_count > 0 ? 'text-[#F05252]' : 'text-[#22C55E]'}`}>
                 <AnimatedCounter value={securityResult.vulnerable_packages_count} />
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">Has &ge;1 CVE advisory</div>
+              <div className="text-xs text-slate-500 dark:text-[#94A3B8] mt-0.5">Has &ge;1 CVE advisory</div>
             </div>
 
-            <div className="bg-slate-50 dark:bg-[#070b14] p-4.5 rounded-xl border border-slate-200/80 dark:border-white/[0.05]">
-              <div className="text-xs uppercase font-bold tracking-wider text-slate-500">Total Advisories</div>
-              <div className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono mt-1">
+            <div className="bg-slate-50 dark:bg-[#111C2E] p-4.5 rounded-xl border border-slate-200/80 dark:border-[#26364D]">
+              <div className="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-[#64748B]">Total Advisories</div>
+              <div className="text-3xl font-extrabold text-slate-900 dark:text-[#F1F5F9] font-mono mt-1">
                 <AnimatedCounter value={normalizedFindings.length} />
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">Unique CVE / GHSA IDs</div>
+              <div className="text-xs text-slate-500 dark:text-[#94A3B8] mt-0.5">Unique CVE / GHSA IDs</div>
             </div>
 
-            <div className="bg-slate-50 dark:bg-[#070b14] p-4.5 rounded-xl border border-slate-200/80 dark:border-white/[0.05]">
-              <div className="text-xs uppercase font-bold tracking-wider text-slate-500">Clean Packages</div>
-              <div className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono mt-1">
+            <div className="bg-slate-50 dark:bg-[#111C2E] p-4.5 rounded-xl border border-slate-200/80 dark:border-[#26364D]">
+              <div className="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-[#64748B]">Clean Packages</div>
+              <div className="text-3xl font-extrabold text-[#22C55E] font-mono mt-1">
                 <AnimatedCounter value={cleanCount} />
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">Zero published advisories</div>
+              <div className="text-xs text-slate-500 dark:text-[#94A3B8] mt-0.5">Zero published advisories</div>
             </div>
 
-            <div className="bg-slate-50 dark:bg-[#070b14] p-4.5 rounded-xl border border-slate-200/80 dark:border-white/[0.05]">
-              <div className="text-xs uppercase font-bold tracking-wider text-slate-500">Unresolved in OSV</div>
-              <div className="text-3xl font-extrabold text-amber-600 dark:text-amber-400 font-mono mt-1">
+            <div className="bg-slate-50 dark:bg-[#111C2E] p-4.5 rounded-xl border border-slate-200/80 dark:border-[#26364D]">
+              <div className="text-xs uppercase font-bold tracking-wider text-slate-500 dark:text-[#64748B]">Unresolved in OSV</div>
+              <div className="text-3xl font-extrabold text-[#F59E0B] font-mono mt-1">
                 <AnimatedCounter value={unresolvedCount} />
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">Custom prefix / range</div>
+              <div className="text-xs text-slate-500 dark:text-[#94A3B8] mt-0.5">Custom prefix / range</div>
             </div>
           </div>
         )}
@@ -296,10 +299,10 @@ export default function SecurityPage() {
 
       {/* Security Analysis Workspace */}
       {isLoadingPersisted || isScanning ? (
-        <div className="bg-white dark:bg-[#0f1422] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-8 space-y-4 shadow-2xs dark:shadow-card">
+        <div className="bg-white dark:bg-[#172438] border border-slate-200/90 dark:border-[#26364D] rounded-2xl p-8 space-y-4 shadow-2xs dark:shadow-card">
           <div className="flex items-center space-x-3">
-            <div className="w-5 h-5 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+            <div className="w-5 h-5 border-2 border-[#F05252] border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm font-semibold text-slate-700 dark:text-[#F1F5F9]">
               {isScanning ? 'Querying OSV registry archives for package vulnerabilities...' : 'Hydrating persisted security findings for this snapshot...'}
             </span>
           </div>
@@ -310,25 +313,25 @@ export default function SecurityPage() {
           </div>
         </div>
       ) : !securityResult ? (
-        <div className="bg-white dark:bg-[#0f1422] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-12 text-center text-slate-500 dark:text-slate-400 space-y-4 max-w-xl mx-auto shadow-2xs dark:shadow-card">
-          <div className="p-3.5 bg-rose-500/10 text-rose-500 dark:text-rose-400 rounded-2xl w-fit mx-auto border border-rose-500/20">
+        <div className="bg-white dark:bg-[#172438] border border-slate-200/90 dark:border-[#26364D] rounded-2xl p-12 text-center text-slate-500 dark:text-[#94A3B8] space-y-4 max-w-xl mx-auto shadow-2xs dark:shadow-card">
+          <div className="p-3.5 bg-[#F05252]/10 text-[#F05252] rounded-2xl w-fit mx-auto border border-[#F05252]/20">
             <ShieldAlert className="w-8 h-8" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">No Security Scan Performed Yet</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+            <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-[#F1F5F9]">No Security Scan Performed Yet</h3>
+            <p className="text-sm text-slate-500 dark:text-[#94A3B8] max-w-md mx-auto leading-relaxed">
               Click <strong>"Scan OSV Vulnerabilities"</strong> above to inspect package versions against the Open Source Vulnerabilities database.
             </p>
           </div>
         </div>
       ) : normalizedFindings.length === 0 ? (
-        <div className="bg-white dark:bg-[#0f1422] border border-emerald-500/30 rounded-2xl p-8 text-center space-y-3 shadow-2xs dark:shadow-card max-w-xl mx-auto">
-          <div className="p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl w-fit mx-auto border border-emerald-500/25 shadow-glow-emerald">
+        <div className="bg-white dark:bg-[#172438] border border-[#22C55E]/30 rounded-2xl p-8 text-center space-y-3 shadow-2xs dark:shadow-card max-w-xl mx-auto">
+          <div className="p-3 bg-[#22C55E]/10 text-[#22C55E] rounded-2xl w-fit mx-auto border border-[#22C55E]/25 shadow-glow-emerald">
             <CheckCircle2 className="w-8 h-8" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-lg sm:text-xl font-bold text-emerald-700 dark:text-emerald-300">No Known Vulnerabilities Found</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-lg mx-auto leading-relaxed">
+            <h3 className="text-lg sm:text-xl font-bold text-[#22C55E]">No Known Vulnerabilities Found</h3>
+            <p className="text-sm text-slate-500 dark:text-[#94A3B8] max-w-lg mx-auto leading-relaxed">
               All inspected dependencies returned clean records from the OSV database. Note: Clean API results indicate absence of published CVE advisories, not formal security proof.
             </p>
           </div>
@@ -336,10 +339,10 @@ export default function SecurityPage() {
       ) : (
         <div className="space-y-4">
           {/* Filter Bar with Animated Pill */}
-          <div className="bg-white dark:bg-[#0f1422] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-4.5 flex flex-wrap items-center justify-between gap-3 shadow-2xs dark:shadow-card">
+          <div className="bg-white dark:bg-[#172438] border border-slate-200/90 dark:border-[#26364D] rounded-2xl p-4.5 flex flex-wrap items-center justify-between gap-3 shadow-2xs dark:shadow-card">
             <div className="flex items-center space-x-2">
-              <Filter className="w-4 h-4 text-slate-400" />
-              <span className="text-sm font-bold text-slate-800 dark:text-slate-200">
+              <Filter className="w-4 h-4 text-slate-400 dark:text-[#94A3B8]" />
+              <span className="text-sm font-bold text-slate-800 dark:text-[#F1F5F9]">
                 {isSimulatedActive ? 'Baseline Vulnerability Filter:' : 'Filter Severity:'}
               </span>
               <div className="flex items-center space-x-1.5">
@@ -353,13 +356,13 @@ export default function SecurityPage() {
                       className={`relative text-sm px-3.5 py-1.5 rounded-xl font-medium transition duration-150 ${
                         isSelected
                           ? 'text-white font-semibold'
-                          : 'bg-slate-100 dark:bg-[#070b14] text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-white/[0.05]'
+                          : 'bg-slate-100 dark:bg-[#111C2E] text-slate-600 dark:text-[#94A3B8] hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-[#26364D]'
                       }`}
                     >
                       {isSelected && (
                         <motion.div
                           layoutId="activeSecurityFilter"
-                          className="absolute inset-0 bg-gradient-to-r from-rose-600 to-rose-700 rounded-xl shadow-glow-rose"
+                          className="absolute inset-0 bg-[#F05252] rounded-xl shadow-glow-rose"
                           transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                         />
                       )}
@@ -372,13 +375,13 @@ export default function SecurityPage() {
 
             {/* Search Input */}
             <div className="relative w-full sm:w-72">
-              <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+              <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400 dark:text-[#94A3B8]" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search package name or CVE..."
-                className="w-full bg-slate-50 dark:bg-[#070b14] border border-slate-300 dark:border-white/[0.08] rounded-xl pl-9 pr-3 py-1.5 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-rose-500/60 transition"
+                className="w-full bg-slate-50 dark:bg-[#111C2E] border border-slate-300 dark:border-[#26364D] rounded-xl pl-9 pr-3 py-1.5 text-sm text-slate-900 dark:text-[#F1F5F9] placeholder-slate-400 dark:placeholder-[#64748B] focus:outline-none focus:border-[#F05252]/60 transition"
               />
             </div>
           </div>
@@ -389,47 +392,47 @@ export default function SecurityPage() {
               <motion.div
                 key={`${finding.packageName}-${finding.id}-${idx}`}
                 whileHover={shouldReduceMotion ? {} : { y: -2, transition: { duration: 0.15, ease: easeSoft } }}
-                className="bg-white dark:bg-[#0f1422] hover:bg-slate-50/80 dark:hover:bg-[#141b2e] border border-rose-300 dark:border-rose-500/30 hover:border-rose-400 dark:hover:border-rose-500/50 rounded-2xl p-5 sm:p-6 space-y-3.5 shadow-2xs dark:shadow-card transition-colors duration-200"
+                className="bg-white dark:bg-[#172438] hover:bg-slate-50/80 dark:hover:bg-[#1c2c44] border border-[#F05252]/30 hover:border-[#F05252]/60 rounded-2xl p-5 sm:p-6 space-y-3.5 shadow-2xs dark:shadow-card transition-colors duration-200"
               >
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 dark:border-white/[0.06] pb-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 dark:border-[#26364D] pb-3">
                   <div className="flex items-center space-x-2.5">
-                    <span className="font-mono text-base font-bold text-rose-700 dark:text-rose-300">
+                    <span className="font-mono text-base font-bold text-[#F05252]">
                       {finding.packageName}
                     </span>
-                    <span className="text-sm text-slate-600 dark:text-slate-400 font-mono bg-slate-100 dark:bg-slate-900/80 px-2.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                    <span className="text-sm text-slate-600 dark:text-[#94A3B8] font-mono bg-slate-100 dark:bg-[#111C2E] px-2.5 py-0.5 rounded border border-slate-200 dark:border-[#26364D]">
                       v{finding.version}
                     </span>
                     {isSimulatedActive && (
-                      <span className="text-xs text-slate-500 dark:text-slate-400 font-sans italic bg-slate-50 dark:bg-[#070b14] px-2 py-0.5 rounded border border-slate-200 dark:border-white/[0.04]">
+                      <span className="text-xs text-slate-500 dark:text-[#94A3B8] font-sans italic bg-slate-50 dark:bg-[#111C2E] px-2 py-0.5 rounded border border-slate-200 dark:border-[#26364D]">
                         Baseline Package
                       </span>
                     )}
                   </div>
 
                   <div className="flex items-center space-x-2">
-                    <span className="text-sm font-mono font-bold text-cyan-700 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-200 dark:border-cyan-500/20">
+                    <span className="text-sm font-mono font-bold text-[#19B6A4] bg-[#19B6A4]/10 px-3 py-1 rounded-full border border-[#19B6A4]/30">
                       {finding.id}
                     </span>
                     {finding.severity && (
-                      <span className="text-xs font-semibold bg-amber-50 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 px-3 py-1 rounded-full border border-amber-200 dark:border-amber-500/30">
+                      <span className="text-xs font-semibold bg-[#F59E0B]/10 text-[#F59E0B] px-3 py-1 rounded-full border border-[#F59E0B]/30">
                         {finding.severity}
                       </span>
                     )}
                   </div>
                 </div>
 
-                <p className="text-sm sm:text-[15px] text-slate-700 dark:text-slate-300 leading-relaxed">
+                <p className="text-sm sm:text-[15px] text-slate-700 dark:text-[#94A3B8] leading-relaxed">
                   {finding.summary}
                 </p>
 
-                <div className="flex flex-wrap items-center justify-between gap-3 text-sm pt-2 border-t border-slate-100 dark:border-white/[0.04]">
+                <div className="flex flex-wrap items-center justify-between gap-3 text-sm pt-2 border-t border-slate-100 dark:border-[#26364D]">
                   <div>
                     {finding.fixedVersions.length > 0 ? (
-                      <span className="text-emerald-700 dark:text-emerald-400 font-medium">
-                        Patched in: <span className="font-mono text-slate-900 dark:text-white font-semibold">{finding.fixedVersions.join(', ')}</span>
+                      <span className="text-[#22C55E] font-medium">
+                        Patched in: <span className="font-mono text-slate-900 dark:text-[#F1F5F9] font-semibold">{finding.fixedVersions.join(', ')}</span>
                       </span>
                     ) : (
-                      <span className="text-slate-500 italic text-xs">No specific fix version registered in advisory</span>
+                      <span className="text-slate-500 dark:text-[#64748B] italic text-xs">No specific fix version registered in advisory</span>
                     )}
                   </div>
 
@@ -438,7 +441,7 @@ export default function SecurityPage() {
                       href={finding.references[0]?.url || finding.references[0]}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center space-x-1.5 text-cyan-700 dark:text-cyan-400 hover:text-cyan-800 dark:hover:text-cyan-300 hover:underline text-sm font-medium"
+                      className="inline-flex items-center space-x-1.5 text-[#4C8DCE] hover:underline text-sm font-medium"
                     >
                       <span>Official Advisory</span>
                       <ExternalLink className="w-3.5 h-3.5" />
@@ -451,15 +454,15 @@ export default function SecurityPage() {
 
           {/* Unresolved / Unverified Packages Section */}
           {securityResult.unresolved_packages && securityResult.unresolved_packages.length > 0 && (
-            <div className="bg-white dark:bg-[#0f1422] border border-amber-300 dark:border-amber-500/30 rounded-2xl p-5 text-sm space-y-2 shadow-2xs dark:shadow-card">
-              <div className="flex items-center space-x-2 font-bold text-amber-700 dark:text-amber-400">
+            <div className="bg-white dark:bg-[#172438] border border-[#F59E0B]/30 rounded-2xl p-5 text-sm space-y-2 shadow-2xs dark:shadow-card">
+              <div className="flex items-center space-x-2 font-bold text-[#F59E0B]">
                 <HelpCircle className="w-4 h-4" />
                 <span>Unresolved / Unverified in OSV ({securityResult.unresolved_packages.length} packages):</span>
               </div>
-              <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-[13px] leading-relaxed">
+              <p className="text-slate-500 dark:text-[#94A3B8] text-xs sm:text-[13px] leading-relaxed">
                 The following packages could not be conclusively verified against OSV (e.g. non-registry packages, local modules, or custom scope prefixes):
               </p>
-              <div className="font-mono text-slate-800 dark:text-slate-300 bg-slate-50 dark:bg-[#070b14] p-3 rounded-xl border border-slate-200 dark:border-white/[0.05] text-xs sm:text-[13px]">
+              <div className="font-mono text-slate-800 dark:text-[#F1F5F9] bg-slate-50 dark:bg-[#111C2E] p-3 rounded-xl border border-slate-200 dark:border-[#26364D] text-xs sm:text-[13px]">
                 {securityResult.unresolved_packages.join(', ')}
               </div>
             </div>

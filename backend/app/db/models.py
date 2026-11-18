@@ -40,6 +40,12 @@ class Project(Base):
     name = Column(String(255), nullable=False, index=True)
     ecosystem = Column(String(64), nullable=False, default="npm", index=True)
     description = Column(Text, nullable=True)
+
+    # Import provenance metadata
+    import_source = Column(String(32), nullable=True, default="manifest_upload")
+    repository_url = Column(String(512), nullable=True)
+    default_branch = Column(String(128), nullable=True)
+
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
@@ -99,6 +105,17 @@ class AnalysisRun(Base):
     # Manifest input metadata (for historical reproducibility)
     manifest_metadata = Column(JsonType, nullable=True)
     error_summary = Column(Text, nullable=True)
+
+    # Import and provenance metadata
+    import_source = Column(String(32), nullable=True, default="manifest_upload")
+    repository_url = Column(String(512), nullable=True)
+    branch_name = Column(String(128), nullable=True)
+    commit_sha = Column(String(64), nullable=True)
+
+    # Risk score and explainable factor breakdown
+    risk_score = Column(Float, nullable=True)
+    risk_category = Column(String(32), nullable=True)
+    risk_factors = Column(JsonType, nullable=True)
 
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
 

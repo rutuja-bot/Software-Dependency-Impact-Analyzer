@@ -84,7 +84,14 @@ class ProjectRepository:
         analysis_data: GraphAnalysisResponse,
         manifest_metadata: Optional[Dict[str, Any]] = None,
         status: str = "completed",
-        error_summary: Optional[str] = None
+        error_summary: Optional[str] = None,
+        import_source: Optional[str] = "manifest_upload",
+        repository_url: Optional[str] = None,
+        branch_name: Optional[str] = None,
+        commit_sha: Optional[str] = None,
+        risk_score: Optional[float] = None,
+        risk_category: Optional[str] = None,
+        risk_factors: Optional[Dict[str, Any]] = None
     ) -> AnalysisRun:
         """
         Atomically records a new analysis run and its immutable graph snapshot.
@@ -109,7 +116,14 @@ class ProjectRepository:
             topological_order=analysis_data.topological_order,
             cycle_details=cycles_dict,
             manifest_metadata=manifest_metadata,
-            error_summary=error_summary
+            error_summary=error_summary,
+            import_source=import_source,
+            repository_url=repository_url,
+            branch_name=branch_name,
+            commit_sha=commit_sha,
+            risk_score=risk_score,
+            risk_category=risk_category,
+            risk_factors=risk_factors
         )
         self.db.add(analysis)
         self.db.flush()  # Populates analysis.id
@@ -164,6 +178,23 @@ class ProjectRepository:
             .order_by(desc(AnalysisRun.created_at))
             .first()
         )
+
+    def update_analysis_risk(
+        self,
+        analysis_id: str,
+        risk_score: float,
+        risk_category: str,
+        risk_factors: Dict[str, Any]
+    ) -> Optional[AnalysisRun]:
+        analysis = self.get_analysis_by_id(analysis_id)
+        if not analysis:
+            return None
+        analysis.risk_score = risk_score
+        analysis.risk_category = risk_category
+        analysis.risk_factors = risk_factors
+        self.db.commit()
+        self.db.refresh(analysis)
+        return analysis
 
     def count_analyses(self) -> int:
         return self.db.query(func.count(AnalysisRun.id)).scalar() or 0

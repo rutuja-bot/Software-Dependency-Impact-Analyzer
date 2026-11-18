@@ -16,6 +16,9 @@ class ProjectResponse(ProjectBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
+    import_source: Optional[str] = "manifest_upload"
+    repository_url: Optional[str] = None
+    default_branch: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     analysis_count: int = 0
@@ -37,6 +40,13 @@ class AnalysisHistoryItem(BaseModel):
     has_cycles: bool
     cycle_count: int
     is_dag: bool
+    import_source: Optional[str] = "manifest_upload"
+    repository_url: Optional[str] = None
+    branch_name: Optional[str] = None
+    commit_sha: Optional[str] = None
+    risk_score: Optional[float] = None
+    risk_category: Optional[str] = None
+    risk_factors: Optional[Dict[str, Any]] = None
     created_at: datetime
 
 class GraphSnapshotResponse(BaseModel):

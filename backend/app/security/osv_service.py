@@ -1,6 +1,7 @@
 import json
 import logging
-from typing import Dict, List, Optional, Any
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Dict, List, Optional, Any, Tuple
 import requests
 
 from app.core.config import settings
@@ -180,6 +181,7 @@ class OsvSecurityService:
         """
         Batch-scans a collection of packages: [{'name': 'express', 'version': '4.18.2'}, ...]
         Deduplicates queries and preserves isolated partial failures.
+        Queries external OSV endpoints concurrently using a bounded ThreadPoolExecutor (max_workers=8).
         """
         results: List[PackageSecurityResult] = []
         unresolved: List[str] = []
@@ -187,7 +189,10 @@ class OsvSecurityService:
 
         seen_queries: Dict[str, PackageSecurityResult] = {}
         max_external_queries = getattr(settings, "MAX_EXTERNAL_SCAN_PACKAGES", 75)
-        queries_executed = 0
+
+        # Step 1: Pre-process packages, identify distinct concrete queries to execute
+        unique_to_query: Dict[str, Tuple[str, str]] = {}
+        queries_executed_count = 0
 
         for pkg in packages:
             name = (pkg.get("name") or "").strip()
@@ -197,6 +202,54 @@ class OsvSecurityService:
                 continue
 
             # Check if version is missing or cannot be verified
+            if not version or version.lower() in ("none", "null", "simulated", "unknown"):
+                continue
+
+            query_key = f"{name}@{version}"
+            if query_key not in seen_queries and query_key not in unique_to_query:
+                if queries_executed_count < max_external_queries:
+                    unique_to_query[query_key] = (name, version)
+                    queries_executed_count += 1
+                else:
+                    # Exceeded ceiling: mark deferred
+                    res = PackageSecurityResult(
+                        package_name=name,
+                        version=version,
+                        status="unresolved",
+                        error_message=f"OSV scan deferred: per-request batch limit of {max_external_queries} external queries reached."
+                    )
+                    seen_queries[query_key] = res
+
+        # Step 2: Concurrently query external OSV endpoint for distinct packages (max 8 workers)
+        if unique_to_query:
+            num_workers = min(8, max(1, len(unique_to_query)))
+            with ThreadPoolExecutor(max_workers=num_workers) as executor:
+                future_to_key = {
+                    executor.submit(self.query_package, name, version): key
+                    for key, (name, version) in unique_to_query.items()
+                }
+                for future in as_completed(future_to_key):
+                    key = future_to_key[future]
+                    name, version = unique_to_query[key]
+                    try:
+                        res = future.result()
+                    except Exception as ex:
+                        res = PackageSecurityResult(
+                            package_name=name,
+                            version=version,
+                            status="error",
+                            error_message=f"OSV query worker error: {str(ex)}"
+                        )
+                    seen_queries[key] = res
+
+        # Step 3: Reconstruct results in exact original input order
+        for pkg in packages:
+            name = (pkg.get("name") or "").strip()
+            version = (pkg.get("version") or "").strip()
+
+            if not name:
+                continue
+
             if not version or version.lower() in ("none", "null", "simulated", "unknown"):
                 res = PackageSecurityResult(
                     package_name=name,
@@ -209,32 +262,19 @@ class OsvSecurityService:
                 continue
 
             query_key = f"{name}@{version}"
-            if query_key in seen_queries:
-                results.append(seen_queries[query_key])
-                continue
-
-            if queries_executed >= max_external_queries:
-                res = PackageSecurityResult(
-                    package_name=name,
-                    version=version,
-                    status="unresolved",
-                    error_message=f"OSV scan deferred: per-request batch limit of {max_external_queries} external queries reached."
-                )
-                seen_queries[query_key] = res
+            res = seen_queries.get(query_key)
+            if res is not None:
                 results.append(res)
-                unresolved.append(name)
-                warnings.append(f"Package '{name}' was deferred because the scan exceeded {max_external_queries} external queries.")
-                continue
-
-            result = self.query_package(name, version)
-            queries_executed += 1
-            seen_queries[query_key] = result
-            results.append(result)
-
-            if result.status in ("unresolved", "error"):
-                unresolved.append(name)
-                if result.error_message:
-                    warnings.append(f"{name}@{version}: {result.error_message}")
+                if res.status in ("unresolved", "error"):
+                    unresolved.append(name)
+                    if res.error_message:
+                        warning_msg = f"{name}@{version}: {res.error_message}"
+                        if warning_msg not in warnings:
+                            warnings.append(warning_msg)
+                        if "per-request batch limit" in res.error_message:
+                            defer_warning = f"Package '{name}' was deferred because the scan exceeded {max_external_queries} external queries."
+                            if defer_warning not in warnings:
+                                warnings.append(defer_warning)
 
         vulnerable_count = sum(1 for r in results if r.status == "vulnerable")
         clean_count = sum(1 for r in results if r.status == "clean")

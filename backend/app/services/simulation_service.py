@@ -18,7 +18,15 @@ from app.schemas.simulation import (
     DownstreamImpactDiff,
     SimulationResponse
 )
+from app.schemas.comparison import (
+    ComparisonNodeDiff,
+    ComparisonEdgeDiff,
+    VulnerabilityDelta,
+    RiskScoreDelta,
+    GraphComparisonResponse
+)
 from app.services.graph_service import DependencyGraphService
+from app.services.risk_service import DependencyRiskService
 
 class DependencySimulationService:
     """
@@ -143,16 +151,16 @@ class DependencySimulationService:
                     ))
                 message = f"Simulated removing all incoming dependency links to '{target_pkg}'."
 
-            # Calculate unreachable (orphaned) packages from root
-            reachable_from_root = set(nx.descendants(simulated_graph, root_package)) | {root_package}
-            all_non_root_nodes = set(simulated_graph.nodes()) - {root_package}
-            orphaned = all_non_root_nodes - reachable_from_root
-            orphaned_nodes = sorted(list(orphaned))
-
             # If target has in-degree 0 in simulated graph, it is removed as a node from simulated graph
             if simulated_graph.in_degree(target_pkg) == 0 and target_pkg != root_package:
                 simulated_graph.remove_node(target_pkg)
                 removed_nodes.append(target_pkg)
+
+            # Calculate newly unreachable (orphaned) packages from root resulting from this removal
+            baseline_reachable = set(nx.descendants(baseline_graph, root_package))
+            simulated_reachable = set(nx.descendants(simulated_graph, root_package))
+            orphaned = (baseline_reachable - simulated_reachable) - {target_pkg} - set(removed_nodes)
+            orphaned_nodes = sorted(list(orphaned))
 
         # --- OPERATION 3: UPGRADE DEPENDENCY ---
         elif request.operation == SimulationOperationType.UPGRADE:
@@ -251,4 +259,214 @@ class DependencySimulationService:
             impact_diff=impact_diff,
             simulated_analysis=simulated_analysis,
             warnings=warnings
+        )
+
+    def compare_simulation(
+        self,
+        baseline_graph: nx.DiGraph,
+        root_package: str,
+        request: SimulationRequest,
+        project_version: Optional[str] = "1.0.0",
+        security_findings: Optional[Dict[str, List[Dict[str, Any]]]] = None,
+        freshness_records: Optional[Dict[str, Dict[str, Any]]] = None
+    ) -> GraphComparisonResponse:
+        """
+        Computes a comprehensive Before-and-After graph comparison, including
+        structural diff, newly affected downstream packages, introduced/resolved
+        vulnerabilities, and before/after risk scores.
+        """
+        # 1. Run simulation
+        sim_res = self.simulate(baseline_graph, root_package, request, project_version)
+
+        # 2. Baseline & Simulated Risk Scores
+        risk_service = DependencyRiskService()
+        baseline_risk = risk_service.evaluate_project_risk(
+            graph=baseline_graph,
+            root_package=root_package,
+            project_version=project_version,
+            security_findings=security_findings,
+            freshness_records=freshness_records
+        )
+
+        # Build simulated graph copy for risk evaluation
+        simulated_graph = copy.deepcopy(baseline_graph)
+        # Apply changes to simulated_graph
+        if request.operation == SimulationOperationType.ADD:
+            src = request.source_package or root_package
+            tgt = request.target_package.strip()
+            if tgt not in simulated_graph:
+                simulated_graph.add_node(tgt, version=request.version or "simulated", is_root=False, dep_type=request.dep_type or DependencyType.DIRECT)
+            simulated_graph.add_edge(src, tgt, version_constraint=request.version, relation="depends_on")
+        elif request.operation == SimulationOperationType.REMOVE:
+            tgt = request.target_package.strip()
+            src = request.source_package or root_package
+            if simulated_graph.has_edge(src, tgt):
+                simulated_graph.remove_edge(src, tgt)
+            else:
+                for u, v in list(simulated_graph.in_edges(tgt)):
+                    simulated_graph.remove_edge(u, v)
+            if simulated_graph.in_degree(tgt) == 0 and tgt != root_package:
+                simulated_graph.remove_node(tgt)
+        elif request.operation == SimulationOperationType.UPGRADE:
+            tgt = request.target_package.strip()
+            if tgt in simulated_graph:
+                simulated_graph.nodes[tgt]["version"] = request.version.strip()
+                for u, v in simulated_graph.in_edges(tgt):
+                    simulated_graph.edges[u, v]["version_constraint"] = request.version.strip()
+
+        # Vulnerability resolution / introduction tracking
+        sec_map = dict(security_findings or {})
+        simulated_sec_map = dict(sec_map)
+        introduced_vulns: List[Dict[str, Any]] = []
+        resolved_vulns: List[Dict[str, Any]] = []
+
+        if request.operation == SimulationOperationType.REMOVE:
+            tgt = request.target_package.strip()
+            if tgt in sec_map and sec_map[tgt]:
+                resolved_vulns.extend(sec_map[tgt])
+                simulated_sec_map.pop(tgt, None)
+        elif request.operation == SimulationOperationType.UPGRADE:
+            tgt = request.target_package.strip()
+            # If upgraded, assume vulnerabilities from the old version are addressed by the upgrade
+            if tgt in sec_map and sec_map[tgt]:
+                resolved_vulns.extend(sec_map[tgt])
+                simulated_sec_map[tgt] = []
+
+        simulated_risk = risk_service.evaluate_project_risk(
+            graph=simulated_graph,
+            root_package=root_package,
+            project_version=project_version,
+            security_findings=simulated_sec_map,
+            freshness_records=freshness_records
+        )
+
+        score_change = round(simulated_risk.overall_score - baseline_risk.overall_score, 1)
+        risk_delta = RiskScoreDelta(
+            baseline_score=baseline_risk.overall_score,
+            simulated_score=simulated_risk.overall_score,
+            score_change=score_change,
+            baseline_category=baseline_risk.overall_category,
+            simulated_category=simulated_risk.overall_category,
+            category_changed=baseline_risk.overall_category != simulated_risk.overall_category
+        )
+
+        vuln_delta = VulnerabilityDelta(
+            introduced_count=len(introduced_vulns),
+            resolved_count=len(resolved_vulns),
+            introduced_vulnerabilities=introduced_vulns,
+            resolved_vulnerabilities=resolved_vulns
+        )
+
+        # 3. Construct Unified Nodes & Edges with visual semantics
+        # Added: #22C55E (Green), Removed: #F05252 (Red), Modified: #4C8DCE (Steel Blue),
+        # Unchanged: #19B6A4 (Teal), Vulnerable: #F05252 (Critical Red)
+        unified_nodes: List[ComparisonNodeDiff] = []
+        all_pkg_names = set(baseline_graph.nodes()) | set(simulated_graph.nodes()) | set(sim_res.diff.removed_nodes)
+
+        for pkg in sorted(all_pkg_names):
+            orig_ver = baseline_graph.nodes.get(pkg, {}).get("version") if pkg in baseline_graph else None
+            sim_ver = simulated_graph.nodes.get(pkg, {}).get("version") if pkg in simulated_graph else None
+            is_vuln = bool(sec_map.get(pkg))
+
+            if pkg in sim_res.diff.added_nodes:
+                status = "added"
+                color = "#22C55E"  # Green
+                badge = "+ Added"
+            elif pkg in sim_res.diff.removed_nodes:
+                status = "removed"
+                color = "#F05252"  # Red
+                badge = "- Removed"
+            elif pkg in sim_res.diff.version_changes:
+                status = "modified"
+                color = "#4C8DCE"  # Steel Blue
+                badge = f"v{orig_ver} -> v{sim_ver}"
+            else:
+                status = "unchanged"
+                color = "#19B6A4"  # Teal
+                badge = None
+
+            # Vulnerability highlighting takes precedence
+            if is_vuln and status != "removed":
+                color = "#F05252"  # Red
+
+            unified_nodes.append(ComparisonNodeDiff(
+                id=pkg,
+                label=pkg,
+                status=status,
+                original_version=orig_ver,
+                simulated_version=sim_ver,
+                is_vulnerable=is_vuln,
+                highlight_color=color,
+                badge_text=badge
+            ))
+
+        # Unified edges
+        unified_edges: List[ComparisonEdgeDiff] = []
+        seen_edges = set()
+
+        for edge in sim_res.diff.added_edges:
+            unified_edges.append(ComparisonEdgeDiff(
+                source=edge.source,
+                target=edge.target,
+                status="added",
+                version_constraint=edge.version_constraint,
+                highlight_color="#22C55E"
+            ))
+            seen_edges.add((edge.source, edge.target))
+
+        for edge in sim_res.diff.removed_edges:
+            unified_edges.append(ComparisonEdgeDiff(
+                source=edge.source,
+                target=edge.target,
+                status="removed",
+                version_constraint=edge.version_constraint,
+                highlight_color="#F05252"
+            ))
+            seen_edges.add((edge.source, edge.target))
+
+        for u, v, data in baseline_graph.edges(data=True):
+            if (u, v) not in seen_edges and simulated_graph.has_edge(u, v):
+                unified_edges.append(ComparisonEdgeDiff(
+                    source=u,
+                    target=v,
+                    status="unchanged",
+                    version_constraint=data.get("version_constraint"),
+                    highlight_color="#26364D"
+                ))
+
+        # Impact explanation
+        explanation_parts = []
+        if sim_res.impact_diff.newly_affected_packages:
+            explanation_parts.append(
+                f"Affects {len(sim_res.impact_diff.newly_affected_packages)} new downstream package(s): "
+                f"{', '.join(sim_res.impact_diff.newly_affected_packages[:5])}"
+                + (f" and {len(sim_res.impact_diff.newly_affected_packages) - 5} more" if len(sim_res.impact_diff.newly_affected_packages) > 5 else "")
+            )
+        if resolved_vulns:
+            explanation_parts.append(f"Resolves {len(resolved_vulns)} security advisory(ies).")
+        if risk_delta.score_change != 0:
+            direction = "improves" if risk_delta.score_change < 0 else "increases"
+            explanation_parts.append(f"Risk score {direction} by {abs(risk_delta.score_change):.1f} points ({baseline_risk.overall_score} -> {simulated_risk.overall_score}).")
+        elif not explanation_parts:
+            explanation_parts.append("No downstream blast radius expansion or vulnerability delta detected.")
+
+        return GraphComparisonResponse(
+            operation=str(request.operation.value if hasattr(request.operation, 'value') else request.operation),
+            target_package=request.target_package,
+            source_package=request.source_package or root_package,
+            summary=sim_res.message,
+            added_nodes=sim_res.diff.added_nodes,
+            removed_nodes=sim_res.diff.removed_nodes,
+            version_changes=sim_res.diff.version_changes,
+            added_edges=sim_res.diff.added_edges,
+            removed_edges=sim_res.diff.removed_edges,
+            newly_affected_downstream=sim_res.impact_diff.newly_affected_packages,
+            no_longer_affected_downstream=sim_res.impact_diff.no_longer_affected_packages,
+            vulnerability_delta=vuln_delta,
+            risk_delta=risk_delta,
+            unified_nodes=unified_nodes,
+            unified_edges=unified_edges,
+            baseline_stats=sim_res.baseline_stats,
+            simulated_stats=sim_res.simulated_stats,
+            impact_explanation=" ".join(explanation_parts)
         )

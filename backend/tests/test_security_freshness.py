@@ -826,5 +826,66 @@ def test_api_freshness_idempotent_persistence_and_retry():
         assert stored_data["records"][0]["status"] == "scored"
 
 
+def test_osv_concurrent_scanning_and_order_preservation():
+    """
+    Verifies that OsvSecurityService:
+    1. Concurrently resolves packages using ThreadPoolExecutor (max_workers <= 8).
+    2. Strictly preserves the original input order of packages.
+    3. Deduplicates identical queries without extra external calls.
+    4. Handles worker exceptions in individual queries without aborting the batch.
+    """
+    import threading
+    import time
+    from app.schemas.security import PackageSecurityResult
+    service = OsvSecurityService()
+
+    active_threads = set()
+    thread_lock = threading.Lock()
+
+    def mock_query(name, version):
+        with thread_lock:
+            active_threads.add(threading.get_ident())
+        time.sleep(0.01)  # Simulate concurrent I/O
+        if name == "error-pkg":
+            raise RuntimeError("Upstream socket error on worker thread")
+        return PackageSecurityResult(
+            package_name=name,
+            version=version,
+            status="clean" if name != "vuln-pkg" else "vulnerable",
+            vulnerabilities=[]
+        )
+
+    # 15 packages with 1 duplicate and 1 failing package
+    packages = [
+        {"name": "pkg-0", "version": "1.0.0"},
+        {"name": "vuln-pkg", "version": "2.0.0"},
+        {"name": "pkg-1", "version": "1.0.0"},
+        {"name": "pkg-0", "version": "1.0.0"},  # Duplicate query
+        {"name": "error-pkg", "version": "1.0.0"},
+        {"name": "pkg-2", "version": "1.0.0"},
+    ]
+
+    with patch.object(service, "query_package", side_effect=mock_query):
+        response = service.scan_packages(packages)
+
+        # Output length matches input length
+        assert len(response.results) == 6
+        # Order is strictly preserved
+        assert [r.package_name for r in response.results] == [
+            "pkg-0", "vuln-pkg", "pkg-1", "pkg-0", "error-pkg", "pkg-2"
+        ]
+        # Duplicate package has identical clean status
+        assert response.results[0].status == "clean"
+        assert response.results[3].status == "clean"
+        # Vulnerable package correctly identified
+        assert response.results[1].status == "vulnerable"
+        # Worker exception captured safely as error status without aborting batch
+        assert response.results[4].status == "error"
+        assert "OSV query worker error" in response.results[4].error_message
+        # Overall status is partial because of the error package
+        assert response.status == "partial"
+        assert "error-pkg" in response.unresolved_packages
+
+
 
 

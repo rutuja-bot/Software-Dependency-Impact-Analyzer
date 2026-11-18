@@ -138,19 +138,24 @@ def test_external_osv_scan_batch_query_ceiling():
             assert "per-request batch limit" in result.results[5].error_message
 
 def test_project_create_validation_safeguards():
+    from app.api.routes.projects import require_repo
+    mock_repo = MagicMock()
+    app.dependency_overrides[require_repo] = lambda: mock_repo
     client = TestClient(app)
+    try:
+        # Empty name rejected
+        res_empty = client.post("/api/projects", json={"name": "   ", "ecosystem": "npm"})
+        assert res_empty.status_code == 400
 
-    # Empty name rejected
-    res_empty = client.post("/api/projects", json={"name": "   ", "ecosystem": "npm"})
-    assert res_empty.status_code == 400
+        # Name > 255 rejected
+        res_long_name = client.post("/api/projects", json={"name": "a" * 256, "ecosystem": "npm"})
+        assert res_long_name.status_code == 400
 
-    # Name > 255 rejected
-    res_long_name = client.post("/api/projects", json={"name": "a" * 256, "ecosystem": "npm"})
-    assert res_long_name.status_code == 400
-
-    # Description > 2000 rejected
-    res_long_desc = client.post("/api/projects", json={"name": "valid-name", "description": "d" * 2001})
-    assert res_long_desc.status_code == 400
+        # Description > 2000 rejected
+        res_long_desc = client.post("/api/projects", json={"name": "valid-name", "description": "d" * 2001})
+        assert res_long_desc.status_code == 400
+    finally:
+        app.dependency_overrides.pop(require_repo, None)
 
 def test_error_detail_redaction_on_unexpected_exception():
     client = TestClient(app)
