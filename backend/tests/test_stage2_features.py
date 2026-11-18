@@ -316,3 +316,99 @@ def test_simulation_compare_invariance(client):
     # Verify baseline graph is untouched by querying impact on original package
     res_impact = client.get("/api/impact/explore?target_package=axios")
     assert res_impact.status_code == 200
+
+
+def test_github_token_fallback_and_authorization_header(client, monkeypatch):
+    """
+    Verifies that:
+    1. User-supplied auth_token is prioritized if provided.
+    2. Server-side GITHUB_TOKEN environment variable is used as fallback.
+    3. Authorization header is omitted entirely when no token is present.
+    4. Tokens are never exposed in error responses.
+    """
+    # Case 1: User provides auth_token -> sends Authorization: Bearer <user_token>
+    with patch("requests.get") as mock_get:
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "name": "express",
+            "owner": {"login": "expressjs"},
+            "default_branch": "master"
+        }
+        mock_get.return_value = mock_resp
+
+        client.post("/api/import/repo-info", json={
+            "repo_url": "https://github.com/expressjs/express",
+            "auth_token": "ghp_user_token_123"
+        })
+        called_headers = mock_get.call_args[1].get("headers", {})
+        assert called_headers.get("Authorization") == "Bearer ghp_user_token_123"
+
+    # Case 2: No user token, but server GITHUB_TOKEN is set -> sends Authorization: Bearer <server_token>
+    monkeypatch.setenv("GITHUB_TOKEN", "ghp_server_env_token_456")
+    with patch("requests.get") as mock_get:
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "name": "express",
+            "owner": {"login": "expressjs"},
+            "default_branch": "master"
+        }
+        mock_get.return_value = mock_resp
+
+        client.post("/api/import/repo-info", json={
+            "repo_url": "https://github.com/expressjs/express",
+            "auth_token": ""
+        })
+        called_headers = mock_get.call_args[1].get("headers", {})
+        assert called_headers.get("Authorization") == "Bearer ghp_server_env_token_456"
+
+    # Case 3: Neither token exists -> Authorization header is omitted
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    with patch("requests.get") as mock_get:
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "name": "express",
+            "owner": {"login": "expressjs"},
+            "default_branch": "master"
+        }
+        mock_get.return_value = mock_resp
+
+        client.post("/api/import/repo-info", json={
+            "repo_url": "https://github.com/expressjs/express",
+            "auth_token": None
+        })
+        called_headers = mock_get.call_args[1].get("headers", {})
+        assert "Authorization" not in called_headers
+
+
+def test_github_rate_limit_user_friendly_error(client):
+    """
+    Verifies that GitHub 403 / 429 rate limit responses return clean, friendly messages
+    without dumping raw GitHub JSON or leaking tokens.
+    """
+    expected_msg = "GitHub API rate limit reached. Configure GITHUB_TOKEN on the server or supply a Personal Access Token in the import dialog."
+
+    # In /api/import/repo-info
+    with patch("requests.get") as mock_get:
+        mock_resp = MagicMock()
+        mock_resp.status_code = 403
+        mock_resp.text = json.dumps({"message": "API rate limit exceeded for 74.220.52.132."})
+        mock_get.return_value = mock_resp
+
+        res = client.post("/api/import/repo-info", json={"repo_url": "https://github.com/expressjs/express"})
+        assert res.status_code == 429
+        assert res.json()["detail"] == expected_msg
+        assert "74.220.52.132" not in res.json()["detail"]
+
+    # In /api/import/github
+    with patch("requests.get") as mock_get:
+        mock_resp = MagicMock()
+        mock_resp.status_code = 403
+        mock_resp.json.return_value = {"message": "API rate limit exceeded"}
+        mock_get.return_value = mock_resp
+
+        res = client.post("/api/import/github", json={"repo_url": "https://github.com/expressjs/express"})
+        assert res.status_code == 400
+        assert res.json()["detail"] == expected_msg

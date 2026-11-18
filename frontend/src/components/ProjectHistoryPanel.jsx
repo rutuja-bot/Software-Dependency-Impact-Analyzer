@@ -37,25 +37,36 @@ export default function ProjectHistoryPanel({
   const [loading, setLoading] = useState(false);
   const [loadingSnapshotId, setLoadingSnapshotId] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [projectsError, setProjectsError] = useState(null);
   const [newProjectName, setNewProjectName] = useState('');
   const [isCreatingProject, setIsCreatingProject] = useState(false);
+
+  const fetchProjects = async () => {
+    setProjectsError(null);
+    try {
+      const projList = await listProjects();
+      setProjects(projList);
+      if (projList.length > 0 && !selectedProjectId) {
+        const match = currentProjectName
+          ? projList.find(p => p.name === currentProjectName)
+          : null;
+        setSelectedProjectId(match ? match.id : projList[0].id);
+      }
+    } catch (err) {
+      console.error('Failed to list projects:', err);
+      const detail = err?.response?.data?.detail || err?.message || 'Could not load project history';
+      setProjectsError(detail);
+    }
+  };
 
   const fetchStatusAndProjects = async () => {
     setLoading(true);
     setErrorMsg(null);
+    setProjectsError(null);
+    let statusRes = null;
     try {
-      const statusRes = await getDatabaseStatus();
+      statusRes = await getDatabaseStatus();
       setDbStatus(statusRes);
-      if (statusRes.connected) {
-        const projList = await listProjects();
-        setProjects(projList);
-        if (projList.length > 0 && !selectedProjectId) {
-          const match = currentProjectName
-            ? projList.find(p => p.name === currentProjectName)
-            : null;
-          setSelectedProjectId(match ? match.id : projList[0].id);
-        }
-      }
     } catch (err) {
       console.warn('Database offline or unreachable:', err);
       setDbStatus({
@@ -63,9 +74,14 @@ export default function ProjectHistoryPanel({
         status: 'unreachable',
         message: 'PostgreSQL database is currently disconnected or unavailable.'
       });
-    } finally {
       setLoading(false);
+      return;
     }
+
+    if (statusRes && statusRes.connected) {
+      await fetchProjects();
+    }
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -225,6 +241,25 @@ export default function ProjectHistoryPanel({
               <FolderPlus className="w-4 h-4 text-[#19B6A4]" />
               <span>Project Workspace Registry</span>
             </div>
+
+            {/* Projects Fetch Error with Retry */}
+            {projectsError && (
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 p-3 rounded-xl text-xs space-y-2 text-amber-800 dark:text-amber-300">
+                <div className="font-semibold flex items-center space-x-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <span>Could not load project history</span>
+                </div>
+                <p className="font-mono text-[11px] break-words text-slate-600 dark:text-[#94A3B8]">{projectsError}</p>
+                <button
+                  type="button"
+                  onClick={fetchProjects}
+                  className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/40 dark:hover:bg-amber-900/60 rounded-lg text-amber-900 dark:text-amber-200 font-medium transition flex items-center space-x-1 cursor-pointer"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  <span>Retry</span>
+                </button>
+              </div>
+            )}
 
             {/* Project Select Dropdown */}
             <div className="space-y-1.5">

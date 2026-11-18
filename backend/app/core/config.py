@@ -38,6 +38,9 @@ class Settings(BaseModel):
     OSV_API_BASE_URL: str = os.getenv("OSV_API_BASE_URL", "https://api.osv.dev/v1/query")
     OSV_TIMEOUT_SECONDS: float = float(os.getenv("OSV_TIMEOUT_SECONDS", "5.0"))
 
+    # GitHub API Authentication (optional, increases unauthenticated 60 req/hr ceiling to 5,000 req/hr)
+    GITHUB_TOKEN: Optional[str] = (os.getenv("GITHUB_TOKEN") or "").strip() or None
+
     # Public Demo Resource Limits
     MAX_REQUEST_BODY_SIZE_BYTES: int = int(os.getenv("MAX_REQUEST_BODY_SIZE_BYTES", str(2 * 1024 * 1024)))  # 2 MiB ceiling
     MAX_PACKAGE_COUNT: int = int(os.getenv("MAX_PACKAGE_COUNT", "400"))  # 400 package ceiling for free-tier memory safety
