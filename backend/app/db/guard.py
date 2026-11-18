@@ -1,6 +1,7 @@
 import os
+import re
 from urllib.parse import urlparse, parse_qs
-from typing import Optional
+from typing import Optional, Any
 
 class DatabaseTargetError(ValueError):
     """Raised when a database URL violates deployment targeting safety rules."""
@@ -8,12 +9,110 @@ class DatabaseTargetError(ValueError):
 
 LOCAL_DEV_DB_NAMES = ("dependency_analyzer_dev", "dependency_analyzer")
 
+# Authorized production database names:
+# Supports Neon default ('neondb') as well as explicit Render PostgreSQL production database names
+# ('dependency_analyzer_prod', 'dependency_analyzer_production', 'dependency_analyzer_db').
+AUTHORIZED_PRODUCTION_DB_NAMES = (
+    "neondb",
+    "dependency_analyzer_prod",
+    "dependency_analyzer_production",
+    "dependency_analyzer_db",
+)
+
 PLACEHOLDER_SUBSTRINGS = (
     "driver://",
     "user:pass@localhost",
     "localhost/dbname",
     "driver://user:pass@localhost/dbname"
 )
+
+# Validation pattern for Render internal PostgreSQL private network hosts:
+# Authoritative Render documentation (https://render.com/docs/databases, Blueprint spec)
+# and Render PostgreSQL connection strings identify internal database instances using
+# the service resource format: dpg-<service-id>-a where <service-id> is alphanumeric
+# (typically 8 to 32 characters) with the primary instance node suffix '-a'.
+# Arbitrary suffixes (e.g. 'dpg-c12345678-evil') and unverified DNS suffixes are strictly rejected.
+RENDER_INTERNAL_HOST_REGEX = re.compile(
+    r"^dpg-[a-z0-9]{8,32}-a$",
+    re.IGNORECASE
+)
+
+def parse_bool_setting(val: Any) -> Optional[bool]:
+    """
+    Parses boolean or string representation of a boolean.
+    Returns:
+        - True for True, 1, 1.0, 'true', '1', 'yes', 't', 'y', 'on'
+        - False for False, 0, 0.0, 'false', '0', 'no', 'f', 'n', 'off', '',
+          other numeric values (e.g. 2, -1, 0.5), unsupported strings,
+          and unsupported object types.
+        - None for None (unset).
+    """
+    if val is None:
+        return None
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, (int, float)):
+        if val == 1:
+            return True
+        if val == 0:
+            return False
+        return False
+    if isinstance(val, str):
+        v = val.strip().lower()
+        if v in ("true", "1", "yes", "t", "y", "on"):
+            return True
+        if v in ("false", "0", "no", "f", "n", "off", ""):
+            return False
+        return False
+    return False
+
+def resolve_bool_setting(arg_val: Any, env_var_name: str) -> bool:
+    """
+    Resolves a boolean setting from an explicit argument or environment variable.
+    Explicit arguments (including False, 'false', '0', 'no', '') take strict precedence
+    and cannot be overridden by environment variables set to true.
+    Environment fallback only occurs when arg_val is unset (None).
+    """
+    parsed_arg = parse_bool_setting(arg_val)
+    if parsed_arg is not None:
+        return parsed_arg
+    raw_env = os.getenv(env_var_name)
+    parsed_env = parse_bool_setting(raw_env)
+    return bool(parsed_env)
+
+def is_render_internal_host(hostname: str) -> bool:
+    """
+    Validates whether a database hostname strictly conforms to Render's internal
+    PostgreSQL private network addressing scheme.
+    """
+    if not hostname or not isinstance(hostname, str):
+        return False
+    return bool(RENDER_INTERNAL_HOST_REGEX.match(hostname.strip()))
+
+def is_trusted_render_internal_connection(
+    hostname: str,
+    render_env: Any = None,
+    render_internal_sdn: Any = None
+) -> bool:
+    """
+    Evaluates whether a production database connection qualifies as a trusted
+    Render internal private network connection without requiring external TLS encryption.
+
+    Requires ALL of the following conditions:
+    1. RENDER=true in the runtime environment (Render platform indicator).
+    2. RENDER_INTERNAL_SDN=true in application configuration (explicit opt-in).
+    3. Hostname strictly matches the verified Render internal PostgreSQL hostname regex.
+
+    Explicit False arguments (e.g. False, 'false', '0', 'no', '') take strict precedence
+    and cannot be overridden by environment variables set to true.
+    """
+    is_render_runtime = resolve_bool_setting(render_env, "RENDER")
+    is_sdn_configured = resolve_bool_setting(render_internal_sdn, "RENDER_INTERNAL_SDN")
+
+    if not is_render_runtime or not is_sdn_configured:
+        return False
+
+    return is_render_internal_host(hostname)
 
 def resolve_migration_target(
     settings_env: Optional[str],
@@ -89,7 +188,9 @@ def validate_db_target(
     is_migration: bool = False,
     staging_migration: Optional[bool] = None,
     approved_production_host: Optional[str] = None,
-    production_migration: Optional[bool] = None
+    production_migration: Optional[bool] = None,
+    render_env: Any = None,
+    render_internal_sdn: Any = None
 ) -> None:
     """
     Validates a database connection URL against deployment safety rules.
@@ -293,7 +394,7 @@ def validate_db_target(
         sslmode_list = query_params.get("sslmode", [])
         valid_tls_modes = ("require", "verify-ca", "verify-full")
 
-        if not sslmode_list or any(m.lower() not in valid_tls_modes for m in sslmode_list):
+        if not sslmode_list or len(sslmode_list) > 1 or any(m.lower() not in valid_tls_modes for m in sslmode_list):
             raise DatabaseTargetError(
                 "Insecure connection rejected: Neon staging requires TLS encryption. "
                 f"Database URL query parameters must include sslmode in {valid_tls_modes} (e.g. ?sslmode=require)."
@@ -313,7 +414,7 @@ def validate_db_target(
             if not eff_prod_host or not eff_prod_host.strip():
                 raise DatabaseTargetError(
                     "Production database safety check failed: APPROVED_PRODUCTION_HOST is not configured. "
-                    "You must specify the exact approved Neon production hostname."
+                    "You must specify the exact approved production hostname."
                 )
 
             clean_approved_prod_host = eff_prod_host.strip().lower()
@@ -343,11 +444,11 @@ def validate_db_target(
                     "is not an authorized production host."
                 )
 
-            # Must strictly target neondb
-            if dbname != "neondb":
+            # Must strictly target an approved production database name
+            if dbname not in AUTHORIZED_PRODUCTION_DB_NAMES:
                 raise DatabaseTargetError(
                     f"Unauthorized production database name '{dbname}'. "
-                    "Production migrations are only authorized against 'neondb'."
+                    f"Production migrations are only authorized against approved production databases ({', '.join(AUTHORIZED_PRODUCTION_DB_NAMES)})."
                 )
 
             # Verify TLS configuration - fail closed if missing or any value is insecure
@@ -355,11 +456,41 @@ def validate_db_target(
             sslmode_list = query_params.get("sslmode", [])
             valid_tls_modes = ("require", "verify-ca", "verify-full")
 
-            if not sslmode_list or any(m.lower() not in valid_tls_modes for m in sslmode_list):
-                raise DatabaseTargetError(
-                    "Insecure connection rejected: Neon production requires TLS encryption. "
-                    f"Database URL query parameters must include sslmode in {valid_tls_modes} (e.g. ?sslmode=require)."
-                )
+            is_trusted_internal = is_trusted_render_internal_connection(
+                hostname=hostname,
+                render_env=render_env,
+                render_internal_sdn=render_internal_sdn,
+            )
+            if is_trusted_internal:
+                if len(sslmode_list) > 1:
+                    raise DatabaseTargetError(
+                        "Insecure connection rejected: Production requires secure TLS encryption. "
+                        "Conflicting or duplicate sslmode parameters are prohibited."
+                    )
+                if sslmode_list:
+                    mode = sslmode_list[0].lower()
+                    if mode == "disable":
+                        raise DatabaseTargetError(
+                            "Insecure connection rejected: Production requires secure TLS encryption. "
+                            "Explicit insecure sslmode 'disable' is forbidden."
+                        )
+                    if mode in ("verify-ca", "verify-full"):
+                        raise DatabaseTargetError(
+                            "Insecure connection rejected: Production requires secure TLS encryption. "
+                            f"Render internal connections use self-signed certificates and do not support sslmode='{mode}'. "
+                            "Use sslmode=require or omit sslmode."
+                        )
+                    if mode != "require":
+                        raise DatabaseTargetError(
+                            "Insecure connection rejected: Production requires secure TLS encryption. "
+                            f"Unsupported sslmode '{mode}' for internal connection. Allowed modes: require (or omit sslmode)."
+                        )
+            else:
+                if not sslmode_list or len(sslmode_list) > 1 or any(m.lower() not in valid_tls_modes for m in sslmode_list):
+                    raise DatabaseTargetError(
+                        "Insecure connection rejected: Production requires secure TLS encryption. "
+                        f"Database URL query parameters must include sslmode in {valid_tls_modes} (e.g. ?sslmode=require)."
+                    )
 
         else:
             # Normal production application connection
@@ -378,8 +509,38 @@ def validate_db_target(
             sslmode_list = query_params.get("sslmode", [])
             valid_tls_modes = ("require", "verify-ca", "verify-full")
 
-            if not sslmode_list or any(m.lower() not in valid_tls_modes for m in sslmode_list):
-                raise DatabaseTargetError(
-                    "Insecure connection rejected: Production requires secure TLS encryption. "
-                    f"Database URL query parameters must include sslmode in {valid_tls_modes} (e.g. ?sslmode=require)."
-                )
+            is_trusted_internal = is_trusted_render_internal_connection(
+                hostname=hostname,
+                render_env=render_env,
+                render_internal_sdn=render_internal_sdn,
+            )
+            if is_trusted_internal:
+                if len(sslmode_list) > 1:
+                    raise DatabaseTargetError(
+                        "Insecure connection rejected: Production requires secure TLS encryption. "
+                        "Conflicting or duplicate sslmode parameters are prohibited."
+                    )
+                if sslmode_list:
+                    mode = sslmode_list[0].lower()
+                    if mode == "disable":
+                        raise DatabaseTargetError(
+                            "Insecure connection rejected: Production requires secure TLS encryption. "
+                            "Explicit insecure sslmode 'disable' is forbidden."
+                        )
+                    if mode in ("verify-ca", "verify-full"):
+                        raise DatabaseTargetError(
+                            "Insecure connection rejected: Production requires secure TLS encryption. "
+                            f"Render internal connections use self-signed certificates and do not support sslmode='{mode}'. "
+                            "Use sslmode=require or omit sslmode."
+                        )
+                    if mode != "require":
+                        raise DatabaseTargetError(
+                            "Insecure connection rejected: Production requires secure TLS encryption. "
+                            f"Unsupported sslmode '{mode}' for internal connection. Allowed modes: require (or omit sslmode)."
+                        )
+            else:
+                if not sslmode_list or len(sslmode_list) > 1 or any(m.lower() not in valid_tls_modes for m in sslmode_list):
+                    raise DatabaseTargetError(
+                        "Insecure connection rejected: Production requires secure TLS encryption. "
+                        f"Database URL query parameters must include sslmode in {valid_tls_modes} (e.g. ?sslmode=require)."
+                    )

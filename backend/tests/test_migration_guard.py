@@ -427,7 +427,7 @@ def test_production_migrations_reject_localhost_and_loopback():
 def test_production_migrations_require_secure_tls():
     # No TLS query parameter
     no_tls_url = f"postgresql://prod_user:secret@{APPROVED_PRODUCTION_HOST}:5432/neondb"
-    with pytest.raises(DatabaseTargetError, match="Neon production requires TLS encryption"):
+    with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
         validate_db_target(
             no_tls_url,
             environment="production",
@@ -439,7 +439,7 @@ def test_production_migrations_require_secure_tls():
     # Insecure modes
     for mode in ("disable", "allow", "prefer"):
         insecure_url = f"postgresql://prod_user:secret@{APPROVED_PRODUCTION_HOST}:5432/neondb?sslmode={mode}"
-        with pytest.raises(DatabaseTargetError, match="Neon production requires TLS encryption"):
+        with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
             validate_db_target(
                 insecure_url,
                 environment="production",
@@ -450,7 +450,7 @@ def test_production_migrations_require_secure_tls():
 
     # Conflicting modes
     conflicting_tls_url = f"postgresql://prod_user:secret@{APPROVED_PRODUCTION_HOST}:5432/neondb?sslmode=require&sslmode=disable"
-    with pytest.raises(DatabaseTargetError, match="Neon production requires TLS encryption"):
+    with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
         validate_db_target(
             conflicting_tls_url,
             environment="production",
@@ -655,3 +655,636 @@ def test_session_get_engine_fails_closed_when_database_url_missing():
     with patch.object(settings, "ENVIRONMENT", "development"), patch.object(settings, "DATABASE_URL", None):
         engine = get_engine(db_url=None)
         assert engine is None
+
+
+# =========================================================================
+# RENDER INTERNAL HOST & TLS PRODUCTION SAFEGUARD TESTS
+# =========================================================================
+
+def test_render_internal_hostname_validation_logic():
+    from app.db.guard import is_render_internal_host
+
+    # Valid Render internal hostnames (strictly verified dpg-<service-id>-a)
+    assert is_render_internal_host("dpg-c12345678-a") is True
+    assert is_render_internal_host("dpg-cu0123456789abcdef0g-a") is True
+    assert is_render_internal_host("DPG-C12345678-A") is True  # Case insensitive
+
+    # Arbitrary suffixes must be strictly rejected
+    assert is_render_internal_host("dpg-c12345678-evil") is False
+    assert is_render_internal_host("dpg-c12345678-b") is False
+    assert is_render_internal_host("dpg-c12345678-prod") is False
+
+    # Unverified DNS suffixes (.internal, .render.internal) without evidence must be rejected
+    assert is_render_internal_host("dpg-c12345678-a.internal") is False
+    assert is_render_internal_host("dpg-c12345678-a.render.internal") is False
+    assert is_render_internal_host("evil.internal") is False
+    assert is_render_internal_host("attacker.render.internal") is False
+    assert is_render_internal_host("dpg-c12345678-a.other.internal") is False
+
+    # Invalid hostnames starting with dpg-
+    assert is_render_internal_host("dpg-") is False
+    assert is_render_internal_host("dpg-bad") is False
+    assert is_render_internal_host("dpg-short-a") is False  # ID under 8 chars
+    assert is_render_internal_host("dpg-evil.com") is False
+    assert is_render_internal_host("dpg-attacker.internal.evil.com") is False
+
+    # Realistic external Render endpoints must NOT be treated as internal (require explicit TLS)
+    assert is_render_internal_host("dpg-c12345678-a.singapore-postgres.render.com") is False
+    assert is_render_internal_host("dpg-c12345678-a.oregon-postgres.render.com") is False
+    assert is_render_internal_host("dpg-cu0123456789abcdef0g-a.frankfurt-postgres.render.com") is False
+
+    # Realistic Neon hostnames must NOT be treated as internal Render hosts
+    assert is_render_internal_host("ep-cool-flower-123456.us-east-2.aws.neon.tech") is False
+    assert is_render_internal_host("ep-prod-instance.neon.tech") is False
+
+    assert is_render_internal_host("") is False
+    assert is_render_internal_host(None) is False
+
+
+def test_production_tls_all_cases():
+    """
+    Exhaustively exercises validate_db_target() in production mode across all verified cases:
+    1. Internal Render host without sslmode: accept.
+    2. Internal Render host with sslmode=require: accept.
+    3. Internal Render host with sslmode=disable: reject.
+    4. Internal Render host with sslmode=verify-ca or verify-full: reject (self-signed certs).
+    5. Arbitrary suffix host (e.g. dpg-c12345678-evil) and unverified suffixes treated as external: reject without TLS.
+    6. External host without sslmode: reject.
+    7. External host with sslmode=require: accept.
+    8. External host with sslmode=verify-full and verify-ca: accept.
+    9. External host with sslmode=disable: reject.
+    10. Duplicate / conflicting sslmode parameters everywhere: reject.
+    11. Localhost and development database rejection.
+    """
+    internal_render_host = "dpg-c12345678-a"
+    arbitrary_suffix_host = "dpg-c12345678-evil"
+    external_render_host = "dpg-c12345678-a.singapore-postgres.render.com"
+    external_neon_host = "ep-cool-flower-123456.us-east-2.aws.neon.tech"
+
+    # -------------------------------------------------------------------------
+    # 1. Internal Render host without sslmode (allowed on private SDN with flags)
+    # -------------------------------------------------------------------------
+    validate_db_target(
+        f"postgresql://user:pass@{internal_render_host}/neondb",
+        environment="production",
+        is_migration=False,
+        render_env=True,
+        render_internal_sdn=True,
+    )
+
+    # -------------------------------------------------------------------------
+    # 2. Internal Render host with sslmode=require (allowed)
+    # -------------------------------------------------------------------------
+    validate_db_target(
+        f"postgresql://user:pass@{internal_render_host}/neondb?sslmode=require",
+        environment="production",
+        is_migration=False,
+        render_env=True,
+        render_internal_sdn=True,
+    )
+
+    # -------------------------------------------------------------------------
+    # 3. Internal Render host with sslmode=disable (strictly rejected)
+    # -------------------------------------------------------------------------
+    with pytest.raises(DatabaseTargetError, match="Explicit insecure sslmode 'disable' is forbidden"):
+        validate_db_target(
+            f"postgresql://user:pass@{internal_render_host}/neondb?sslmode=disable",
+            environment="production",
+            is_migration=False,
+            render_env=True,
+            render_internal_sdn=True,
+        )
+
+    # -------------------------------------------------------------------------
+    # 4. Internal Render host with sslmode=verify-ca or verify-full (strictly rejected)
+    # -------------------------------------------------------------------------
+    with pytest.raises(DatabaseTargetError, match="Render internal connections use self-signed certificates and do not support sslmode='verify-ca'"):
+        validate_db_target(
+            f"postgresql://user:pass@{internal_render_host}/neondb?sslmode=verify-ca",
+            environment="production",
+            is_migration=False,
+            render_env=True,
+            render_internal_sdn=True,
+        )
+
+    with pytest.raises(DatabaseTargetError, match="Render internal connections use self-signed certificates and do not support sslmode='verify-full'"):
+        validate_db_target(
+            f"postgresql://user:pass@{internal_render_host}/neondb?sslmode=verify-full",
+            environment="production",
+            is_migration=False,
+            render_env=True,
+            render_internal_sdn=True,
+        )
+
+    # -------------------------------------------------------------------------
+    # 5. Arbitrary suffix host (dpg-c12345678-evil) and unverified suffixes treated as external
+    # -------------------------------------------------------------------------
+    with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
+        validate_db_target(
+            f"postgresql://user:pass@{arbitrary_suffix_host}/neondb",
+            environment="production",
+            is_migration=False,
+            render_env=True,
+            render_internal_sdn=True,
+        )
+
+    with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
+        validate_db_target(
+            f"postgresql://user:pass@{internal_render_host}.internal/neondb",
+            environment="production",
+            is_migration=False,
+            render_env=True,
+            render_internal_sdn=True,
+        )
+
+    with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
+        validate_db_target(
+            f"postgresql://user:pass@{internal_render_host}.render.internal/neondb",
+            environment="production",
+            is_migration=False,
+            render_env=True,
+            render_internal_sdn=True,
+        )
+
+    # -------------------------------------------------------------------------
+    # 6. External host without sslmode (strictly rejected)
+    # -------------------------------------------------------------------------
+    with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
+        validate_db_target(f"postgresql://user:pass@{external_render_host}/neondb", environment="production", is_migration=False)
+    with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
+        validate_db_target(f"postgresql://user:pass@{external_neon_host}/neondb", environment="production", is_migration=False)
+
+    # -------------------------------------------------------------------------
+    # 7. External host with sslmode=require (allowed)
+    # -------------------------------------------------------------------------
+    validate_db_target(f"postgresql://user:pass@{external_render_host}/neondb?sslmode=require", environment="production", is_migration=False)
+    validate_db_target(f"postgresql://user:pass@{external_neon_host}/neondb?sslmode=require", environment="production", is_migration=False)
+
+    # -------------------------------------------------------------------------
+    # 8. External host with sslmode=verify-full and verify-ca (allowed)
+    # -------------------------------------------------------------------------
+    validate_db_target(f"postgresql://user:pass@{external_render_host}/neondb?sslmode=verify-full", environment="production", is_migration=False)
+    validate_db_target(f"postgresql://user:pass@{external_neon_host}/neondb?sslmode=verify-full", environment="production", is_migration=False)
+    validate_db_target(f"postgresql://user:pass@{external_render_host}/neondb?sslmode=verify-ca", environment="production", is_migration=False)
+    validate_db_target(f"postgresql://user:pass@{external_neon_host}/neondb?sslmode=verify-ca", environment="production", is_migration=False)
+
+    # -------------------------------------------------------------------------
+    # 9. External host with sslmode=disable (strictly rejected)
+    # -------------------------------------------------------------------------
+    with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
+        validate_db_target(f"postgresql://user:pass@{external_render_host}/neondb?sslmode=disable", environment="production", is_migration=False)
+    with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
+        validate_db_target(f"postgresql://user:pass@{external_neon_host}/neondb?sslmode=disable", environment="production", is_migration=False)
+
+    # -------------------------------------------------------------------------
+    # 10. Duplicate / conflicting sslmode parameters (strictly rejected)
+    # -------------------------------------------------------------------------
+    # Internal host duplicates
+    with pytest.raises(DatabaseTargetError, match="Conflicting or duplicate sslmode parameters are prohibited"):
+        validate_db_target(
+            f"postgresql://user:pass@{internal_render_host}/neondb?sslmode=require&sslmode=disable",
+            environment="production",
+            is_migration=False,
+            render_env=True,
+            render_internal_sdn=True,
+        )
+    with pytest.raises(DatabaseTargetError, match="Conflicting or duplicate sslmode parameters are prohibited"):
+        validate_db_target(
+            f"postgresql://user:pass@{internal_render_host}/neondb?sslmode=require&sslmode=require",
+            environment="production",
+            is_migration=False,
+            render_env=True,
+            render_internal_sdn=True,
+        )
+
+    # External host duplicates
+    with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
+        validate_db_target(f"postgresql://user:pass@{external_render_host}/neondb?sslmode=require&sslmode=disable", environment="production", is_migration=False)
+    with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
+        validate_db_target(f"postgresql://user:pass@{external_neon_host}/neondb?sslmode=require&sslmode=verify-full", environment="production", is_migration=False)
+    with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
+        validate_db_target(f"postgresql://user:pass@{external_render_host}/neondb?sslmode=require&sslmode=require", environment="production", is_migration=False)
+
+    # -------------------------------------------------------------------------
+    # 11. Localhost and development database rejection
+    # -------------------------------------------------------------------------
+    # Localhost / loopback rejections
+    for loopback in ("localhost", "127.0.0.1", "127.0.1.1", "0.0.0.0"):
+        with pytest.raises(DatabaseTargetError, match="Local loopback address.*cannot be targeted in production"):
+            validate_db_target(f"postgresql://realuser:strongpass@{loopback}:5432/neondb?sslmode=require", environment="production", is_migration=False)
+
+    # Development database name rejections (internal and external)
+    for dev_db in ("dependency_analyzer_dev", "dependency_analyzer"):
+        with pytest.raises(DatabaseTargetError, match="Local development database.*cannot be targeted in production"):
+            validate_db_target(
+                f"postgresql://user:pass@{internal_render_host}/{dev_db}",
+                environment="production",
+                is_migration=False,
+                render_env=True,
+                render_internal_sdn=True,
+            )
+        with pytest.raises(DatabaseTargetError, match="Local development database.*cannot be targeted in production"):
+            validate_db_target(f"postgresql://user:pass@{external_render_host}/{dev_db}?sslmode=require", environment="production", is_migration=False)
+        with pytest.raises(DatabaseTargetError, match="Local development database.*cannot be targeted in production"):
+            validate_db_target(f"postgresql://user:pass@{external_neon_host}/{dev_db}?sslmode=require", environment="production", is_migration=False)
+
+
+def test_migration_authorization_and_approved_hostname_with_internal_host():
+    internal_host = "dpg-c12345678-a"
+    valid_migration_url = f"postgresql://user:pass@{internal_host}/neondb"
+
+    # Migration unauthorized without PRODUCTION_MIGRATION=true
+    with pytest.raises(DatabaseTargetError, match="Production database migrations are strictly prohibited by default"):
+        validate_db_target(
+            valid_migration_url,
+            environment="production",
+            approved_production_host=internal_host,
+            is_migration=True,
+            production_migration=False,
+            render_env=True,
+            render_internal_sdn=True,
+        )
+
+    # Migration unauthorized without APPROVED_PRODUCTION_HOST
+    with pytest.raises(DatabaseTargetError, match="APPROVED_PRODUCTION_HOST is not configured"):
+        validate_db_target(
+            valid_migration_url,
+            environment="production",
+            approved_production_host=None,
+            is_migration=True,
+            production_migration=True,
+            render_env=True,
+            render_internal_sdn=True,
+        )
+
+    # Migration rejected if host does not match approved host
+    with pytest.raises(DatabaseTargetError, match="Target host must exactly match the approved production host"):
+        validate_db_target(
+            valid_migration_url,
+            environment="production",
+            approved_production_host="dpg-other-host-a",
+            is_migration=True,
+            production_migration=True,
+            render_env=True,
+            render_internal_sdn=True,
+        )
+
+    # Migration rejected on internal host if verify-ca or verify-full is attempted
+    with pytest.raises(DatabaseTargetError, match="Render internal connections use self-signed certificates and do not support sslmode='verify-full'"):
+        validate_db_target(
+            f"{valid_migration_url}?sslmode=verify-full",
+            environment="production",
+            approved_production_host=internal_host,
+            is_migration=True,
+            production_migration=True,
+            render_env=True,
+            render_internal_sdn=True,
+        )
+
+    # Valid authorized migration succeeds against internal host (without sslmode)
+    validate_db_target(
+        valid_migration_url,
+        environment="production",
+        approved_production_host=internal_host,
+        is_migration=True,
+        production_migration=True,
+        render_env=True,
+        render_internal_sdn=True,
+    )
+
+    # Valid authorized migration succeeds against internal host (with sslmode=require)
+    validate_db_target(
+        f"{valid_migration_url}?sslmode=require",
+        environment="production",
+        approved_production_host=internal_host,
+        is_migration=True,
+        production_migration=True,
+        render_env=True,
+        render_internal_sdn=True,
+    )
+
+    # Valid authorized migration succeeds with all approved production database names
+    for prod_db in ("dependency_analyzer_prod", "dependency_analyzer_production", "dependency_analyzer_db"):
+        validate_db_target(
+            f"postgresql://user:pass@{internal_host}/{prod_db}",
+            environment="production",
+            approved_production_host=internal_host,
+            is_migration=True,
+            production_migration=True,
+            render_env=True,
+            render_internal_sdn=True,
+        )
+
+    # Migration rejected for unauthorized database names
+    with pytest.raises(DatabaseTargetError, match="Unauthorized production database name"):
+        validate_db_target(
+            f"postgresql://user:pass@{internal_host}/unauthorized_custom_db",
+            environment="production",
+            approved_production_host=internal_host,
+            is_migration=True,
+            production_migration=True,
+            render_env=True,
+            render_internal_sdn=True,
+        )
+
+
+def test_security_audit_attacker_hostname_spoofing():
+    """
+    Security Audit: Verifies that attacker-controlled public domains or spoofed internal
+    hostnames cannot bypass TLS validation or production guards.
+    """
+    from app.db.guard import is_render_internal_host
+
+    # 1. Attacker-controlled domains embedding dpg patterns must NOT be classified as internal
+    attacker_hosts = [
+        "dpg-c12345678-a.evil-attacker.com",
+        "dpg-c12345678-a.internal.attacker.com",
+        "dpg-c12345678-a.render.com.attacker.com",
+        "attacker.dpg-c12345678-a",
+        "dpg-c12345678-a.attacker.net",
+    ]
+    for attacker_host in attacker_hosts:
+        assert is_render_internal_host(attacker_host) is False
+        # In production runtime, connecting to attacker host without TLS must fail closed
+        with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
+            validate_db_target(f"postgresql://user:pass@{attacker_host}/neondb", environment="production", is_migration=False)
+
+        # Even with render_env=True and render_internal_sdn=True, attacker host is rejected
+        with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
+            validate_db_target(
+                f"postgresql://user:pass@{attacker_host}/neondb",
+                environment="production",
+                is_migration=False,
+                render_env=True,
+                render_internal_sdn=True,
+            )
+
+    # 2. Both postgres:// and postgresql:// schemes with realistic Render-generated internal connection strings
+    render_generated_hosts = [
+        "dpg-cu0123456789abcdef0g-a",
+        "dpg-c12345678-a",
+    ]
+    for gen_host in render_generated_hosts:
+        # Realistic Render connection strings (with port 5432 and both schemes)
+        for scheme in ("postgres", "postgresql"):
+            url = f"{scheme}://analyzer_user:strongpassword@{gen_host}:5432/neondb"
+            validate_db_target(url, environment="production", is_migration=False, render_env=True, render_internal_sdn=True)
+
+            # Insecure mode rejected even on real Render internal connection
+            with pytest.raises(DatabaseTargetError, match="Explicit insecure sslmode 'disable' is forbidden"):
+                validate_db_target(f"{url}?sslmode=disable", environment="production", is_migration=False, render_env=True, render_internal_sdn=True)
+
+            # verify-full rejected because internal certs are self-signed
+            with pytest.raises(DatabaseTargetError, match="Render internal connections use self-signed certificates and do not support sslmode='verify-full'"):
+                validate_db_target(f"{url}?sslmode=verify-full", environment="production", is_migration=False, render_env=True, render_internal_sdn=True)
+
+
+def test_render_internal_trust_conditions(monkeypatch):
+    """
+    Exhaustively tests the three-condition defense-in-depth model for trusted Render internal connections:
+    1. RENDER=true in the runtime environment.
+    2. RENDER_INTERNAL_SDN=true in application configuration.
+    3. Hostname strictly matches the verified Render internal PostgreSQL regex.
+
+    Covers:
+    - String boolean parsing ("false", "0", "no", empty, unset, "true", "1", "yes").
+    - Explicit False argument override protection (cannot be overridden by env vars set to true).
+    - Both production runtime and production migration connection validation.
+    - All combinations of RENDER and RENDER_INTERNAL_SDN.
+    - Invalid hostnames when flags are true.
+    - Environment-variable fallback when arguments are unset (None).
+    """
+    from app.db.guard import (
+        is_trusted_render_internal_connection,
+        parse_bool_setting,
+        resolve_bool_setting,
+    )
+
+    internal_host = "dpg-c12345678-a"
+    invalid_host = "dpg-c12345678-evil"
+    external_host = "dpg-c12345678-a.singapore-postgres.render.com"
+    url_without_ssl = f"postgresql://user:pass@{internal_host}/neondb"
+    url_with_ssl = f"postgresql://user:pass@{internal_host}/neondb?sslmode=require"
+
+    # =========================================================================
+    # 1. String & Numeric Boolean Parsing Unit Tests
+    # =========================================================================
+    # 0 and 1
+    assert parse_bool_setting(1) is True
+    assert parse_bool_setting(1.0) is True
+    assert parse_bool_setting(0) is False
+    assert parse_bool_setting(0.0) is False
+
+    # 2, -1, and 0.5 (must return False)
+    assert parse_bool_setting(2) is False
+    assert parse_bool_setting(-1) is False
+    assert parse_bool_setting(0.5) is False
+    assert parse_bool_setting(100) is False
+
+    # object() and unsupported object types (must return False)
+    assert parse_bool_setting(object()) is False
+    assert parse_bool_setting([]) is False
+    assert parse_bool_setting({}) is False
+
+    # Unsupported strings (must return False)
+    assert parse_bool_setting("random_string") is False
+    assert parse_bool_setting("maybe") is False
+    assert parse_bool_setting("enabled") is False
+    assert parse_bool_setting("2") is False
+    assert parse_bool_setting("-1") is False
+
+    # Strict boolean strings
+    for truthy in (True, "true", "True", "TRUE", "1", "yes", "YES", "t", "y", "on"):
+        assert parse_bool_setting(truthy) is True, f"Failed on truthy: {truthy}"
+
+    for falsy in (False, "false", "False", "FALSE", "0", "no", "NO", "f", "n", "off", "", "   "):
+        assert parse_bool_setting(falsy) is False, f"Failed on falsy: {falsy}"
+
+    # None (unset)
+    assert parse_bool_setting(None) is None
+
+    # =========================================================================
+    # 2. Explicit False Arguments Must NOT Be Overridden by Env Vars Set to True
+    # =========================================================================
+    monkeypatch.setenv("RENDER", "true")
+    monkeypatch.setenv("RENDER_INTERNAL_SDN", "true")
+
+    falsy_inputs = (False, "false", "False", "0", "no", "NO", "", "   ")
+
+    # When render_env is explicitly falsy, must return False even though env vars are true
+    for falsy in falsy_inputs:
+        assert is_trusted_render_internal_connection(internal_host, render_env=falsy, render_internal_sdn=True) is False
+        assert resolve_bool_setting(falsy, "RENDER") is False
+
+        # In production runtime validate_db_target, missing sslmode must be rejected
+        with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
+            validate_db_target(url_without_ssl, environment="production", is_migration=False, render_env=falsy, render_internal_sdn=True)
+
+        # In production migration validate_db_target, missing sslmode must be rejected
+        with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
+            validate_db_target(
+                url_without_ssl,
+                environment="production",
+                approved_production_host=internal_host,
+                is_migration=True,
+                production_migration=True,
+                render_env=falsy,
+                render_internal_sdn=True,
+            )
+
+    # When render_internal_sdn is explicitly falsy, must return False even though env vars are true
+    for falsy in falsy_inputs:
+        assert is_trusted_render_internal_connection(internal_host, render_env=True, render_internal_sdn=falsy) is False
+        assert resolve_bool_setting(falsy, "RENDER_INTERNAL_SDN") is False
+
+        # In production runtime validate_db_target, missing sslmode must be rejected
+        with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
+            validate_db_target(url_without_ssl, environment="production", is_migration=False, render_env=True, render_internal_sdn=falsy)
+
+        # In production migration validate_db_target, missing sslmode must be rejected
+        with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
+            validate_db_target(
+                url_without_ssl,
+                environment="production",
+                approved_production_host=internal_host,
+                is_migration=True,
+                production_migration=True,
+                render_env=True,
+                render_internal_sdn=falsy,
+            )
+
+    # =========================================================================
+    # 3. All Combinations of RENDER and RENDER_INTERNAL_SDN
+    # =========================================================================
+    # (render_env, render_internal_sdn) -> expected trust
+    matrix = [
+        (False, False, False),
+        (True, False, False),
+        (False, True, False),
+        (True, True, True),
+        ("false", "false", False),
+        ("true", "false", False),
+        ("false", "true", False),
+        ("true", "true", True),
+        ("0", "0", False),
+        ("1", "0", False),
+        ("0", "1", False),
+        ("1", "1", True),
+        ("no", "no", False),
+        ("yes", "no", False),
+        ("no", "yes", False),
+        ("yes", "yes", True),
+    ]
+    for r_flag, sdn_flag, expected in matrix:
+        res = is_trusted_render_internal_connection(internal_host, render_env=r_flag, render_internal_sdn=sdn_flag)
+        assert res is expected, f"Failed matrix combination ({r_flag}, {sdn_flag})"
+
+        if expected:
+            # Runtime accepts connection without sslmode
+            validate_db_target(url_without_ssl, environment="production", is_migration=False, render_env=r_flag, render_internal_sdn=sdn_flag)
+            # Migration accepts connection without sslmode
+            validate_db_target(
+                url_without_ssl,
+                environment="production",
+                approved_production_host=internal_host,
+                is_migration=True,
+                production_migration=True,
+                render_env=r_flag,
+                render_internal_sdn=sdn_flag,
+            )
+        else:
+            # Runtime rejects connection without sslmode
+            with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
+                validate_db_target(url_without_ssl, environment="production", is_migration=False, render_env=r_flag, render_internal_sdn=sdn_flag)
+            # Migration rejects connection without sslmode
+            with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
+                validate_db_target(
+                    url_without_ssl,
+                    environment="production",
+                    approved_production_host=internal_host,
+                    is_migration=True,
+                    production_migration=True,
+                    render_env=r_flag,
+                    render_internal_sdn=sdn_flag,
+                )
+
+    # =========================================================================
+    # 4. Invalid Hostnames Rejected Even When Both Flags Are True
+    # =========================================================================
+    invalid_hosts = [
+        "dpg-c12345678-evil",
+        "dpg-c12345678-a.internal",
+        "dpg-c12345678-a.render.internal",
+        "dpg-c12345678-a.singapore-postgres.render.com",
+        "ep-cool-flower-123456.us-east-2.aws.neon.tech",
+        "attacker.com",
+        "dpg-short-a",  # Service ID too short (< 8 chars)
+    ]
+    for inv_host in invalid_hosts:
+        assert is_trusted_render_internal_connection(inv_host, render_env=True, render_internal_sdn=True) is False
+        # Runtime rejects without sslmode
+        with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
+            validate_db_target(f"postgresql://user:pass@{inv_host}/neondb", environment="production", is_migration=False, render_env=True, render_internal_sdn=True)
+        # Migration rejects without sslmode
+        with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption|Target host must exactly match"):
+            validate_db_target(
+                f"postgresql://user:pass@{inv_host}/neondb",
+                environment="production",
+                approved_production_host=inv_host,
+                is_migration=True,
+                production_migration=True,
+                render_env=True,
+                render_internal_sdn=True,
+            )
+
+    # =========================================================================
+    # 5. Environment-Variable Fallback When Arguments Are Unset (None)
+    # =========================================================================
+    # Both env vars unset
+    monkeypatch.delenv("RENDER", raising=False)
+    monkeypatch.delenv("RENDER_INTERNAL_SDN", raising=False)
+    assert is_trusted_render_internal_connection(internal_host) is False
+    with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
+        validate_db_target(url_without_ssl, environment="production", is_migration=False)
+
+    # Only RENDER set to true
+    monkeypatch.setenv("RENDER", "true")
+    monkeypatch.delenv("RENDER_INTERNAL_SDN", raising=False)
+    assert is_trusted_render_internal_connection(internal_host) is False
+    with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
+        validate_db_target(url_without_ssl, environment="production", is_migration=False)
+
+    # Only RENDER_INTERNAL_SDN set to true
+    monkeypatch.delenv("RENDER", raising=False)
+    monkeypatch.setenv("RENDER_INTERNAL_SDN", "true")
+    assert is_trusted_render_internal_connection(internal_host) is False
+    with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
+        validate_db_target(url_without_ssl, environment="production", is_migration=False)
+
+    # Various falsy env var representations when the other is true
+    falsy_env_strings = ["false", "0", "no", ""]
+    for f_env in falsy_env_strings:
+        monkeypatch.setenv("RENDER", f_env)
+        monkeypatch.setenv("RENDER_INTERNAL_SDN", "true")
+        assert is_trusted_render_internal_connection(internal_host) is False
+        with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
+            validate_db_target(url_without_ssl, environment="production", is_migration=False)
+
+        monkeypatch.setenv("RENDER", "true")
+        monkeypatch.setenv("RENDER_INTERNAL_SDN", f_env)
+        assert is_trusted_render_internal_connection(internal_host) is False
+        with pytest.raises(DatabaseTargetError, match="Production requires secure TLS encryption"):
+            validate_db_target(url_without_ssl, environment="production", is_migration=False)
+
+    # Both env vars set to true -> succeeds
+    monkeypatch.setenv("RENDER", "true")
+    monkeypatch.setenv("RENDER_INTERNAL_SDN", "true")
+    assert is_trusted_render_internal_connection(internal_host) is True
+    validate_db_target(url_without_ssl, environment="production", is_migration=False)
+    validate_db_target(
+        url_without_ssl,
+        environment="production",
+        approved_production_host=internal_host,
+        is_migration=True,
+        production_migration=True,
+    )

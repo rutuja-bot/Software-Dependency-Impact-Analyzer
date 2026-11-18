@@ -32,6 +32,7 @@ class Settings(BaseModel):
     DB_MAX_OVERFLOW: int = int(os.getenv("DB_MAX_OVERFLOW", "10"))
     DB_POOL_TIMEOUT: float = float(os.getenv("DB_POOL_TIMEOUT", "30.0"))
     DB_CONNECT_TIMEOUT_SECONDS: float = float(os.getenv("DB_CONNECT_TIMEOUT_SECONDS", "3.0"))
+    RENDER_INTERNAL_SDN: bool = os.getenv("RENDER_INTERNAL_SDN", "False").strip().lower() in ("true", "1", "yes")
 
     # OSV API
     OSV_API_BASE_URL: str = os.getenv("OSV_API_BASE_URL", "https://api.osv.dev/v1/query")
