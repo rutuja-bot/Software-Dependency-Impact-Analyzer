@@ -1,3 +1,4 @@
+import os
 import datetime
 import logging
 import threading
@@ -538,8 +539,9 @@ async def get_github_repo_info(payload: GitHubRepoInfoRequest):
             "Accept": "application/vnd.github.v3+json",
             "User-Agent": "SoftwareDependencyImpactAnalyzer/1.0"
         }
-        if payload.auth_token and payload.auth_token.strip():
-            headers["Authorization"] = f"Bearer {payload.auth_token.strip()}"
+        effective_token = (payload.auth_token or "").strip() or getattr(settings, "GITHUB_TOKEN", None) or (os.getenv("GITHUB_TOKEN") or "").strip() or None
+        if effective_token:
+            headers["Authorization"] = f"Bearer {effective_token}"
 
         import requests
         repo_url = f"https://api.github.com/repos/{owner}/{repo_name}"
@@ -548,8 +550,13 @@ async def get_github_repo_info(payload: GitHubRepoInfoRequest):
             raise HTTPException(status_code=404, detail=f"Repository '{owner}/{repo_name}' not found.")
         elif r.status_code == 401:
             raise HTTPException(status_code=401, detail="GitHub authentication failed. Check your access token.")
+        elif r.status_code in (403, 429):
+            raise HTTPException(
+                status_code=429,
+                detail="GitHub API rate limit reached. Configure GITHUB_TOKEN on the server or supply a Personal Access Token in the import dialog."
+            )
         elif r.status_code != 200:
-            raise HTTPException(status_code=r.status_code, detail=f"GitHub API error: {r.text}")
+            raise HTTPException(status_code=r.status_code, detail=f"GitHub API error (HTTP {r.status_code}).")
 
         data = r.json()
         default_branch = data.get("default_branch", "main")
@@ -560,6 +567,11 @@ async def get_github_repo_info(payload: GitHubRepoInfoRequest):
             headers=headers,
             timeout=10.0
         )
+        if pkg_check.status_code in (403, 429):
+            raise HTTPException(
+                status_code=429,
+                detail="GitHub API rate limit reached. Configure GITHUB_TOKEN on the server or supply a Personal Access Token in the import dialog."
+            )
         has_pkg = pkg_check.status_code == 200
 
         # Check for package-lock.json
@@ -568,6 +580,11 @@ async def get_github_repo_info(payload: GitHubRepoInfoRequest):
             headers=headers,
             timeout=10.0
         )
+        if lock_check.status_code in (403, 429):
+            raise HTTPException(
+                status_code=429,
+                detail="GitHub API rate limit reached. Configure GITHUB_TOKEN on the server or supply a Personal Access Token in the import dialog."
+            )
         has_lock = lock_check.status_code == 200
 
         # Get latest commit

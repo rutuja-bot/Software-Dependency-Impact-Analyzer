@@ -1,3 +1,4 @@
+import os
 import re
 import io
 import json
@@ -100,8 +101,9 @@ class ProjectImportService:
             "Accept": "application/vnd.github.v3+json",
             "User-Agent": "SoftwareDependencyImpactAnalyzer/1.0"
         }
-        if auth_token and auth_token.strip():
-            headers["Authorization"] = f"Bearer {auth_token.strip()}"
+        effective_token = (auth_token or "").strip() or getattr(settings, "GITHUB_TOKEN", None) or (os.getenv("GITHUB_TOKEN") or "").strip() or None
+        if effective_token:
+            headers["Authorization"] = f"Bearer {effective_token}"
 
         # 1. Fetch Repository Info to determine default branch if not specified
         repo_url = f"{GITHUB_API_BASE}/repos/{owner}/{repo}"
@@ -118,8 +120,9 @@ class ProjectImportService:
         elif r_info.status_code == 401:
             raise ValueError("GitHub authentication failed. Please verify your Personal Access Token.")
         elif r_info.status_code in (403, 429):
-            rate_limit_msg = r_info.json().get("message", "Rate limit exceeded")
-            raise ValueError(f"GitHub API access restricted: {rate_limit_msg}. Supply an authentication token to increase limits.")
+            raise ValueError(
+                "GitHub API rate limit reached. Configure GITHUB_TOKEN on the server or supply a Personal Access Token in the import dialog."
+            )
         elif r_info.status_code != 200:
             raise ValueError(f"GitHub API returned unexpected HTTP status {r_info.status_code} for repository '{owner}/{repo}'.")
 
@@ -159,6 +162,10 @@ class ProjectImportService:
         url = f"{GITHUB_API_BASE}/repos/{owner}/{repo}/contents/{path}?ref={branch}"
         try:
             res = requests.get(url, headers=headers, timeout=10.0)
+            if res.status_code in (403, 429):
+                raise ValueError(
+                    "GitHub API rate limit reached. Configure GITHUB_TOKEN on the server or supply a Personal Access Token in the import dialog."
+                )
             if res.status_code != 200:
                 return None
             data = res.json()

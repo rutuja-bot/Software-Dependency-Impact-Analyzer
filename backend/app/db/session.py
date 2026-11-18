@@ -64,6 +64,7 @@ def get_engine(db_url: Optional[str] = None):
                 "pool_size": settings.DB_POOL_SIZE,
                 "max_overflow": settings.DB_MAX_OVERFLOW,
                 "pool_timeout": settings.DB_POOL_TIMEOUT,
+                "pool_recycle": 300,  # Proactively recycle connections every 5 min to prevent dropped idle TCP sockets
                 "pool_pre_ping": True,  # Verifies connection liveness before checkout
                 "connect_args": {
                     "connect_timeout": int(connect_timeout)
