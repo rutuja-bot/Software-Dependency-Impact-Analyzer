@@ -24,6 +24,7 @@ import SummaryCards from '../components/SummaryCards';
 import DependencyGraph from '../components/DependencyGraph';
 import NodeInspector from '../components/NodeInspector';
 import { getProjectRisk } from '../services/api';
+import { formatRiskScore } from '../utils/risk';
 import { motion, useReducedMotion } from 'motion/react';
 import { easeSoft } from '../utils/animations';
 
@@ -190,7 +191,7 @@ export default function OverviewPage() {
               </div>
               <div className="flex items-center space-x-2.5 mt-0.5">
                 <span className="text-2xl font-extrabold font-mono text-slate-900 dark:text-[#F1F5F9]">
-                  {projectRisk.overall_score} / 100
+                  {formatRiskScore(projectRisk.overall_score)} / 10
                 </span>
                 <span className={`text-xs uppercase font-bold font-mono px-2.5 py-0.5 rounded-full border ${
                   projectRisk.overall_category === 'critical' ? 'bg-[#F05252]/10 text-[#F05252] border-[#F05252]/30' :

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useAnalysis } from '../context/AnalysisContext';
 import { exploreImpact, getProjectRisk } from '../services/api';
+import { formatRiskScore } from '../utils/risk';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { easeSoft } from '../utils/animations';
 
@@ -150,7 +151,7 @@ export default function InspectorPage() {
       package_name: pkgName,
       risk_score: finalScore,
       risk_category: cat,
-      summary_explanation: `Package risk score is ${finalScore}/100 (${cat.toUpperCase()}). Evaluates OSV vulnerability, LibYear freshness, downstream impact, and graph criticality.`,
+      summary_explanation: `Package risk score is ${formatRiskScore(finalScore)}/10 (${cat.toUpperCase()}). Evaluates OSV vulnerability, LibYear freshness, downstream impact, and graph criticality.`,
       vulnerabilities_count: vulnCount,
       max_vuln_severity: vulnSev,
       libyear_lag: libyearVal,
@@ -159,7 +160,7 @@ export default function InspectorPage() {
         vulnerability: { display_name: "Known Vulnerability Severity", normalized_score: vulnScore, weight: 0.35, weighted_score: Math.round(vulnScore * 0.35 * 10) / 10, explanation: `Peak severity '${vulnSev}' (${vulnCount} advisories).` },
         freshness: { display_name: "Dependency Freshness (LibYear)", normalized_score: freshScore, weight: 0.25, weighted_score: Math.round(freshScore * 0.25 * 10) / 10, explanation: libyearVal !== null ? `${libyearVal.toFixed(1)} LibYears lag.` : "Freshness data unavailable." },
         downstream_impact: { display_name: "Downstream Blast Radius", normalized_score: impactScore, weight: 0.20, weighted_score: Math.round(impactScore * 0.20 * 10) / 10, explanation: `${impactScore}% of repository packages affected downstream.` },
-        criticality: { display_name: "Structural Dependency Criticality", normalized_score: critScore, weight: 0.20, weighted_score: Math.round(critScore * 0.20 * 10) / 10, explanation: `Graph topological score ${critScore}/100.` }
+        criticality: { display_name: "Structural Dependency Criticality", normalized_score: critScore, weight: 0.20, weighted_score: Math.round(critScore * 0.20 * 10) / 10, explanation: `Graph topological score ${formatRiskScore(critScore)}/10.` }
       }
     };
   };
@@ -232,7 +233,7 @@ export default function InspectorPage() {
                 )}
               </div>
               <p className="text-sm text-slate-500 dark:text-[#94A3B8] mt-1 leading-relaxed">
-                Inspect direct & transitive dependents, downstream reachability paths, and explainable 0–100 risk scores
+                Inspect direct & transitive dependents, downstream reachability paths, and explainable 0–10 risk scores
               </p>
             </div>
           </div>
@@ -318,7 +319,7 @@ export default function InspectorPage() {
                   <div className="flex items-center space-x-2.5">
                     {packageRisk && (
                       <span className={`text-sm font-mono font-bold px-3 py-1 rounded-full border ${catColor.bg} ${catColor.text} ${catColor.border}`}>
-                        Risk Score: {packageRisk.risk_score} / 100 ({packageRisk.risk_category?.toUpperCase()})
+                        Risk Score: {formatRiskScore(packageRisk.risk_score)} / 10 ({packageRisk.risk_category?.toUpperCase()})
                       </span>
                     )}
                     <span className="text-sm font-mono bg-[#19B6A4]/10 text-[#19B6A4] border border-[#19B6A4]/25 px-3 py-1 rounded-full font-semibold">
@@ -462,7 +463,7 @@ export default function InspectorPage() {
                         <div className="flex items-center justify-between">
                           <span className="text-xs uppercase font-bold tracking-wider text-slate-600 dark:text-[#94A3B8] flex items-center space-x-2">
                             <Flame className={`w-5 h-5 ${catColor.text}`} />
-                            <span>Composite Package Risk Score (0–100)</span>
+                            <span>Composite Package Risk Score (0–10)</span>
                           </span>
                           <span className={`text-sm uppercase font-bold font-mono px-3 py-1 rounded-full ${catColor.bg} ${catColor.text} border ${catColor.border}`}>
                             Category: {packageRisk.risk_category}
@@ -470,9 +471,9 @@ export default function InspectorPage() {
                         </div>
                         <div className="flex items-baseline space-x-3">
                           <span className={`text-4xl font-extrabold font-mono ${catColor.text}`}>
-                            {packageRisk.risk_score}
+                            {formatRiskScore(packageRisk.risk_score)}
                           </span>
-                          <span className="text-sm text-slate-500 dark:text-[#64748B]">/ 100 points</span>
+                          <span className="text-sm text-slate-500 dark:text-[#64748B]">/ 10 points</span>
                         </div>
                         <p className="text-sm text-slate-700 dark:text-[#94A3B8] leading-relaxed">
                           {packageRisk.summary_explanation}
@@ -491,7 +492,7 @@ export default function InspectorPage() {
                               <div className="flex items-center justify-between text-xs font-semibold">
                                 <span className="text-slate-800 dark:text-[#F1F5F9] font-bold">{f.display_name}</span>
                                 <span className="font-mono text-slate-500 dark:text-[#94A3B8]">
-                                  {f.normalized_score}/100 &bull; {(f.weight * 100).toFixed(0)}% wt
+                                  {formatRiskScore(f.normalized_score)}/10 &bull; {(f.weight * 100).toFixed(0)}% wt
                                 </span>
                               </div>
                               {/* Progress bar */}

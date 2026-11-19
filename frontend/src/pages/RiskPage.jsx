@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useAnalysis } from '../context/AnalysisContext';
 import { getProjectRisk, scanSecurity, analyzeFreshness } from '../services/api';
+import { formatRiskScore } from '../utils/risk';
 import SecurityPage from './SecurityPage';
 import FreshnessPage from './FreshnessPage';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
@@ -120,7 +121,7 @@ export default function RiskPage() {
                   : 'text-slate-600 dark:text-[#94A3B8] hover:text-slate-900 dark:hover:text-[#F1F5F9]'
               }`}
             >
-              Risk Score (0–100)
+              Risk Score (0–10)
             </button>
             <button
               onClick={() => setActiveTab('security')}
@@ -164,12 +165,12 @@ export default function RiskPage() {
                 </div>
                 <div className="flex items-baseline space-x-3">
                   <span className={`text-5xl font-black font-mono ${overallCatColor.text}`}>
-                    {projectRisk.overall_score}
+                    {formatRiskScore(projectRisk.overall_score)}
                   </span>
-                  <span className="text-sm text-slate-500 dark:text-[#64748B]">/ 100</span>
+                  <span className="text-sm text-slate-500 dark:text-[#64748B]">/ 10</span>
                 </div>
                 <p className="text-xs text-slate-600 dark:text-[#94A3B8] leading-relaxed">
-                  {projectRisk.methodology_notes}
+                  {projectRisk.methodology_notes?.replace(/0-100/g, '0-10')}
                 </p>
                 <div className="pt-2 border-t border-slate-200 dark:border-[#26364D] grid grid-cols-2 gap-2 text-xs">
                   <div>
@@ -199,7 +200,7 @@ export default function RiskPage() {
                   </span>
                   {projectRisk.peak_package_score && (
                     <span className="text-xs font-mono bg-slate-100 dark:bg-[#111C2E] px-2.5 py-0.5 rounded-lg border border-slate-200 dark:border-[#26364D] text-slate-600 dark:text-[#94A3B8]">
-                      Peak Risk: <strong className="text-slate-900 dark:text-white">{projectRisk.peak_package_score}</strong> ({projectRisk.peak_package_name})
+                      Peak Risk: <strong className="text-slate-900 dark:text-white">{formatRiskScore(projectRisk.peak_package_score)} / 10</strong> ({projectRisk.peak_package_name})
                     </span>
                   )}
                 </div>
@@ -212,8 +213,8 @@ export default function RiskPage() {
                     </div>
                     {projectRisk.factors?.vulnerability && (
                       <div className="flex items-center justify-between text-xs font-mono py-1 border-y border-slate-200/60 dark:border-[#26364D]/60 text-slate-700 dark:text-[#94A3B8]">
-                        <span>Score: <strong className="text-slate-900 dark:text-[#F1F5F9]">{projectRisk.factors.vulnerability.normalized_score}</strong>/100</span>
-                        <span className="text-[#F05252] font-semibold">+{projectRisk.factors.vulnerability.weighted_score.toFixed(2)} pts</span>
+                        <span>Score: <strong className="text-slate-900 dark:text-[#F1F5F9]">{formatRiskScore(projectRisk.factors.vulnerability.normalized_score)}</strong>/10</span>
+                        <span className="text-[#F05252] font-semibold">+{(projectRisk.factors.vulnerability.weighted_score / 10).toFixed(2)} pts</span>
                       </div>
                     )}
                     <p className="text-xs text-slate-500 dark:text-[#94A3B8]">
@@ -228,8 +229,8 @@ export default function RiskPage() {
                     </div>
                     {projectRisk.factors?.freshness && (
                       <div className="flex items-center justify-between text-xs font-mono py-1 border-y border-slate-200/60 dark:border-[#26364D]/60 text-slate-700 dark:text-[#94A3B8]">
-                        <span>Score: <strong className="text-slate-900 dark:text-[#F1F5F9]">{projectRisk.factors.freshness.normalized_score}</strong>/100</span>
-                        <span className="text-[#19B6A4] font-semibold">+{projectRisk.factors.freshness.weighted_score.toFixed(2)} pts</span>
+                        <span>Score: <strong className="text-slate-900 dark:text-[#F1F5F9]">{formatRiskScore(projectRisk.factors.freshness.normalized_score)}</strong>/10</span>
+                        <span className="text-[#19B6A4] font-semibold">+{(projectRisk.factors.freshness.weighted_score / 10).toFixed(2)} pts</span>
                       </div>
                     )}
                     <p className="text-xs text-slate-500 dark:text-[#94A3B8]">
@@ -244,8 +245,8 @@ export default function RiskPage() {
                     </div>
                     {projectRisk.factors?.downstream_impact && (
                       <div className="flex items-center justify-between text-xs font-mono py-1 border-y border-slate-200/60 dark:border-[#26364D]/60 text-slate-700 dark:text-[#94A3B8]">
-                        <span>Score: <strong className="text-slate-900 dark:text-[#F1F5F9]">{projectRisk.factors.downstream_impact.normalized_score}</strong>/100</span>
-                        <span className="text-[#4C8DCE] font-semibold">+{projectRisk.factors.downstream_impact.weighted_score.toFixed(2)} pts</span>
+                        <span>Score: <strong className="text-slate-900 dark:text-[#F1F5F9]">{formatRiskScore(projectRisk.factors.downstream_impact.normalized_score)}</strong>/10</span>
+                        <span className="text-[#4C8DCE] font-semibold">+{(projectRisk.factors.downstream_impact.weighted_score / 10).toFixed(2)} pts</span>
                       </div>
                     )}
                     <p className="text-xs text-slate-500 dark:text-[#94A3B8]">
@@ -260,8 +261,8 @@ export default function RiskPage() {
                     </div>
                     {projectRisk.factors?.criticality && (
                       <div className="flex items-center justify-between text-xs font-mono py-1 border-y border-slate-200/60 dark:border-[#26364D]/60 text-slate-700 dark:text-[#94A3B8]">
-                        <span>Score: <strong className="text-slate-900 dark:text-[#F1F5F9]">{projectRisk.factors.criticality.normalized_score}</strong>/100</span>
-                        <span className="text-sky-500 font-semibold">+{projectRisk.factors.criticality.weighted_score.toFixed(2)} pts</span>
+                        <span>Score: <strong className="text-slate-900 dark:text-[#F1F5F9]">{formatRiskScore(projectRisk.factors.criticality.normalized_score)}</strong>/10</span>
+                        <span className="text-sky-500 font-semibold">+{(projectRisk.factors.criticality.weighted_score / 10).toFixed(2)} pts</span>
                       </div>
                     )}
                     <p className="text-xs text-slate-500 dark:text-[#94A3B8]">
@@ -308,10 +309,10 @@ export default function RiskPage() {
                   className="bg-slate-50 dark:bg-[#111C2E] border border-slate-300 dark:border-[#26364D] rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-[#F1F5F9] focus:outline-none"
                 >
                   <option value="all">All Categories</option>
-                  <option value="critical">Critical (75–100)</option>
-                  <option value="high">High (50–74)</option>
-                  <option value="moderate">Moderate (25–49)</option>
-                  <option value="low">Low (0–24)</option>
+                  <option value="critical">Critical (7.5–10)</option>
+                  <option value="high">High (5.0–7.4)</option>
+                  <option value="moderate">Moderate (2.5–4.9)</option>
+                  <option value="low">Low (0–2.4)</option>
                 </select>
               </div>
             </div>
@@ -340,8 +341,8 @@ export default function RiskPage() {
                           {pkg.version && <span className="text-slate-400 font-normal ml-1">v{pkg.version}</span>}
                         </td>
                         <td className="py-2.5 px-3 font-extrabold text-sm">
-                          <span className={color.text}>{pkg.risk_score}</span>
-                          <span className="text-slate-400 text-xs">/100</span>
+                          <span className={color.text}>{formatRiskScore(pkg.risk_score)}</span>
+                          <span className="text-slate-400 text-xs">/ 10</span>
                         </td>
                         <td className="py-2.5 px-3">
                           <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${color.bg} ${color.text} ${color.border}`}>

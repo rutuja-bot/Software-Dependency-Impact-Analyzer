@@ -16,6 +16,7 @@ import {
   Maximize2
 } from 'lucide-react';
 import { exploreImpact, getProjectRisk } from '../services/api';
+import { formatRiskScore } from '../utils/risk';
 import { useAnalysis } from '../context/AnalysisContext';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { easeSoft } from '../utils/animations';
@@ -134,7 +135,7 @@ export default function NodeInspector({ selectedNode, nodes, onSelectAnother }) 
       package_name: pkgName,
       risk_score: finalScore,
       risk_category: cat,
-      summary_explanation: `Package risk score is ${finalScore}/100 (${cat.toUpperCase()}). Evaluates OSV vulnerability, LibYear freshness, downstream impact, and graph criticality.`,
+      summary_explanation: `Package risk score is ${formatRiskScore(finalScore)}/10 (${cat.toUpperCase()}). Evaluates OSV vulnerability, LibYear freshness, downstream impact, and graph criticality.`,
       vulnerabilities_count: vulnCount,
       max_vuln_severity: vulnSev,
       libyear_lag: libyearVal,
@@ -143,7 +144,7 @@ export default function NodeInspector({ selectedNode, nodes, onSelectAnother }) 
         vulnerability: { display_name: "Known Vulnerability Severity", normalized_score: vulnScore, weight: 0.35, weighted_score: Math.round(vulnScore * 0.35 * 10) / 10, explanation: `Peak severity '${vulnSev}' (${vulnCount} advisories).` },
         freshness: { display_name: "Dependency Freshness (LibYear)", normalized_score: freshScore, weight: 0.25, weighted_score: Math.round(freshScore * 0.25 * 10) / 10, explanation: libyearVal !== null ? `${libyearVal.toFixed(1)} LibYears lag.` : "Freshness data unavailable." },
         downstream_impact: { display_name: "Downstream Blast Radius", normalized_score: impactScore, weight: 0.20, weighted_score: Math.round(impactScore * 0.20 * 10) / 10, explanation: `${impactScore}% of repository packages affected downstream.` },
-        criticality: { display_name: "Structural Dependency Criticality", normalized_score: critScore, weight: 0.20, weighted_score: Math.round(critScore * 0.20 * 10) / 10, explanation: `Graph topological score ${critScore}/100.` }
+        criticality: { display_name: "Structural Dependency Criticality", normalized_score: critScore, weight: 0.20, weighted_score: Math.round(critScore * 0.20 * 10) / 10, explanation: `Graph topological score ${formatRiskScore(critScore)}/10.` }
       }
     };
   };
@@ -205,7 +206,7 @@ export default function NodeInspector({ selectedNode, nodes, onSelectAnother }) 
         <div className="flex items-center space-x-2">
           {packageRisk && (
             <span className={`text-xs font-mono font-bold px-2.5 py-1 rounded-full border ${catColor.bg} ${catColor.text} ${catColor.border}`}>
-              Risk: {packageRisk.risk_score}
+              Risk: {formatRiskScore(packageRisk.risk_score)} / 10
             </span>
           )}
           <span className="text-xs font-mono bg-[#19B6A4]/10 text-[#19B6A4] border border-[#19B6A4]/30 px-2 py-1 rounded-full font-semibold">
@@ -359,9 +360,9 @@ export default function NodeInspector({ selectedNode, nodes, onSelectAnother }) 
                 </div>
                 <div className="flex items-baseline space-x-2">
                   <span className={`text-3xl font-extrabold font-mono ${catColor.text}`}>
-                    {packageRisk.risk_score}
+                    {formatRiskScore(packageRisk.risk_score)}
                   </span>
-                  <span className="text-xs text-slate-500 dark:text-[#64748B]">/ 100</span>
+                  <span className="text-xs text-slate-500 dark:text-[#64748B]">/ 10</span>
                 </div>
                 <p className="text-xs text-slate-600 dark:text-[#94A3B8] leading-relaxed">
                   {packageRisk.summary_explanation}
@@ -379,7 +380,7 @@ export default function NodeInspector({ selectedNode, nodes, onSelectAnother }) 
                     <div className="flex items-center justify-between text-xs font-semibold">
                       <span className="text-slate-800 dark:text-[#F1F5F9]">{f.display_name}</span>
                       <span className="font-mono text-slate-500 dark:text-[#94A3B8]">
-                        {f.normalized_score}/100 (wt: {(f.weight * 100).toFixed(0)}%)
+                        {formatRiskScore(f.normalized_score)}/10 (wt: {(f.weight * 100).toFixed(0)}%)
                       </span>
                     </div>
                     {/* Progress Bar */}

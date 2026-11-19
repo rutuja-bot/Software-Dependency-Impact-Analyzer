@@ -20,6 +20,7 @@ import {
 import { useAnalysis } from '../context/AnalysisContext';
 import SimulationPanel from '../components/SimulationPanel';
 import DependencyGraph from '../components/DependencyGraph';
+import { formatRiskScore } from '../utils/risk';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { easeSoft } from '../utils/animations';
 
@@ -177,12 +178,12 @@ export default function SimulationPage() {
                     <div>
                       <div className="flex items-baseline space-x-2">
                         <span className="text-2xl font-extrabold font-mono text-slate-900 dark:text-[#F1F5F9]">
-                          {riskDelta.baseline_score} → {riskDelta.simulated_score}
+                          {formatRiskScore(riskDelta.baseline_score)} → {formatRiskScore(riskDelta.simulated_score)}
                         </span>
                       </div>
                       <div className="mt-1 flex items-center space-x-1.5 text-xs font-mono">
                         <span className={riskDelta.score_change <= 0 ? 'text-[#22C55E] font-bold' : 'text-[#F05252] font-bold'}>
-                          {riskDelta.score_change <= 0 ? `${riskDelta.score_change} pts (Improvement)` : `+${riskDelta.score_change} pts (Increase)`}
+                          {riskDelta.score_change <= 0 ? `${(riskDelta.score_change / 10).toFixed(1)} pts (Improvement)` : `+${(riskDelta.score_change / 10).toFixed(1)} pts (Increase)`}
                         </span>
                       </div>
                     </div>
