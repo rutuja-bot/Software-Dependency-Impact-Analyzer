@@ -61,6 +61,7 @@ class GraphAnalysisResponse(BaseModel):
     topological_order: Optional[List[str]] = Field(None, description="Valid evaluation order if DAG; None if cyclic")
     direct_dependencies: List[str] = Field(default_factory=list)
     transitive_dependencies: List[str] = Field(default_factory=list)
+    manifest_warnings: List[str] = Field(default_factory=list, description="Non-blocking manifest anomaly warnings")
 
 class DownstreamImpactResponse(BaseModel):
     target_package: str

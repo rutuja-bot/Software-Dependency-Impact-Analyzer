@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import quote
 import requests
 
 from app.core.config import settings
@@ -53,7 +54,8 @@ class LibYearFreshnessService:
             if clean_name in self._fetch_errors:
                 return {}
 
-        url = f"{self.registry_base}/{clean_name}"
+        quoted_name = quote(clean_name, safe="@")
+        url = f"{self.registry_base}/{quoted_name}"
         try:
             import unittest.mock
             if isinstance(requests.get, (unittest.mock.Mock, unittest.mock.MagicMock)):
