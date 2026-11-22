@@ -1,4 +1,5 @@
 import os
+import re
 import datetime
 import logging
 import threading
@@ -17,8 +18,15 @@ from app.parsers.nodejs import NodeJsManifestParser
 from app.services.graph_service import DependencyGraphService
 from app.core.config import settings
 from app.core.rate_limiter import limiter
+from urllib.parse import quote
 from app.db.session import get_db, check_db_connection
 from app.db.repository import ProjectRepository
+from app.security.pre_analysis_guard import (
+    validate_manifest_content,
+    validate_repository_url,
+    scrub_sensitive_tokens,
+    PACKAGE_NAME_REGEX
+)
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +133,17 @@ async def analyze_project_manifest(
     limiter.check_rate_limit(request, "analyze", settings.RATE_LIMIT_ANALYZE)
     session_key = resolve_session_key(request, x_session_id)
     try:
+        # Pre-analysis security guard: validate manifest payloads
+        hard_errs, warnings = validate_manifest_content(payload.package_json, is_lockfile=False)
+        if hard_errs:
+            raise HTTPException(status_code=400, detail='; '.join(hard_errs))
+
+        lock_warnings = []
+        if payload.package_lock_json:
+            lock_hard_errs, lock_warnings = validate_manifest_content(payload.package_lock_json, is_lockfile=True)
+            if lock_hard_errs:
+                raise HTTPException(status_code=400, detail='; '.join(lock_hard_errs))
+
         manifest = NodeJsManifestParser.parse_package_json(payload.package_json)
         if payload.package_lock_json:
             manifest = NodeJsManifestParser.parse_package_lock(payload.package_lock_json, manifest)
@@ -132,6 +151,7 @@ async def analyze_project_manifest(
         # Build NetworkX Graph
         G = graph_service.build_graph(manifest)
         analysis = graph_service.analyze_graph(G, manifest.name, manifest.version)
+        analysis.manifest_warnings = warnings + lock_warnings
 
         # Cache active graph in-memory (session-isolated & latest)
         active_entry = {
@@ -368,8 +388,11 @@ async def scan_project_security(
     for node, data in G.nodes(data=True):
         if node == root_pkg:
             continue
+        if not PACKAGE_NAME_REGEX.match(str(node)):
+            logger.warning(f"Skipping package with invalid name format during security scan: {node}")
+            continue
         packages_to_scan.append({
-            "name": node,
+            "name": str(node),
             "version": data.get("version")
         })
 
@@ -428,8 +451,11 @@ async def analyze_project_freshness(
     for node, data in G.nodes(data=True):
         if node == root_pkg:
             continue
+        if not PACKAGE_NAME_REGEX.match(str(node)):
+            logger.warning(f"Skipping package with invalid name format during freshness analysis: {node}")
+            continue
         packages_to_score.append({
-            "name": node,
+            "name": str(node),
             "version": data.get("version")
         })
 
@@ -516,14 +542,17 @@ async def import_github_repository(
 
         return analysis_res
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except HTTPException:
-        raise
+        cleaned_err = scrub_sensitive_tokens(str(e), payload.auth_token)
+        raise HTTPException(status_code=400, detail=cleaned_err)
+    except HTTPException as he:
+        he.detail = scrub_sensitive_tokens(str(he.detail), payload.auth_token)
+        raise he
     except Exception as e:
-        logger.error(f"GitHub import failed: {e}", exc_info=True)
+        cleaned_err = scrub_sensitive_tokens(str(e), payload.auth_token)
+        logger.error(f"GitHub import failed: {cleaned_err}")
         raise HTTPException(
             status_code=500,
-            detail=f"An error occurred while importing GitHub repository: {str(e)}"
+            detail=f"An error occurred while importing GitHub repository: {cleaned_err}"
         )
 
 
@@ -539,13 +568,13 @@ async def get_github_repo_info(payload: GitHubRepoInfoRequest):
             "Accept": "application/vnd.github.v3+json",
             "User-Agent": "SoftwareDependencyImpactAnalyzer/1.0"
         }
+        user_token_supplied = bool(payload.auth_token and payload.auth_token.strip())
         effective_token = (payload.auth_token or "").strip() or getattr(settings, "GITHUB_TOKEN", None) or (os.getenv("GITHUB_TOKEN") or "").strip() or None
         if effective_token:
             headers["Authorization"] = f"Bearer {effective_token}"
 
-        import requests
         repo_url = f"https://api.github.com/repos/{owner}/{repo_name}"
-        r = requests.get(repo_url, headers=headers, timeout=10.0)
+        r = import_service._safe_github_get(repo_url, headers=headers, timeout=10.0)
         if r.status_code == 404:
             raise HTTPException(status_code=404, detail=f"Repository '{owner}/{repo_name}' not found.")
         elif r.status_code == 401:
@@ -559,11 +588,24 @@ async def get_github_repo_info(payload: GitHubRepoInfoRequest):
             raise HTTPException(status_code=r.status_code, detail=f"GitHub API error (HTTP {r.status_code}).")
 
         data = r.json()
+        is_private = bool(data.get("private", False))
+
+        # Security guard: Private repository cannot be inspected via server default token if user supplied no token
+        if is_private and not user_token_supplied:
+            raise HTTPException(
+                status_code=403,
+                detail=f"GitHub repository '{owner}/{repo_name}' is private. A personal GitHub Access Token is required to inspect private repositories."
+            )
+
         default_branch = data.get("default_branch", "main")
+        if not re.match(r"^[A-Za-z0-9._/-]+$", default_branch) or ".." in default_branch:
+            raise HTTPException(status_code=400, detail=f"Invalid default branch name '{default_branch}'.")
+
+        quoted_branch = quote(default_branch, safe="/")
 
         # Check for package.json
-        pkg_check = requests.get(
-            f"https://api.github.com/repos/{owner}/{repo_name}/contents/package.json?ref={default_branch}",
+        pkg_check = import_service._safe_github_get(
+            f"https://api.github.com/repos/{owner}/{repo_name}/contents/package.json?ref={quoted_branch}",
             headers=headers,
             timeout=10.0
         )
@@ -575,8 +617,8 @@ async def get_github_repo_info(payload: GitHubRepoInfoRequest):
         has_pkg = pkg_check.status_code == 200
 
         # Check for package-lock.json
-        lock_check = requests.get(
-            f"https://api.github.com/repos/{owner}/{repo_name}/contents/package-lock.json?ref={default_branch}",
+        lock_check = import_service._safe_github_get(
+            f"https://api.github.com/repos/{owner}/{repo_name}/contents/package-lock.json?ref={quoted_branch}",
             headers=headers,
             timeout=10.0
         )
@@ -589,8 +631,8 @@ async def get_github_repo_info(payload: GitHubRepoInfoRequest):
 
         # Get latest commit
         commit_sha = None
-        commit_check = requests.get(
-            f"https://api.github.com/repos/{owner}/{repo_name}/commits/{default_branch}",
+        commit_check = import_service._safe_github_get(
+            f"https://api.github.com/repos/{owner}/{repo_name}/commits/{quoted_branch}",
             headers=headers,
             timeout=10.0
         )
@@ -602,19 +644,21 @@ async def get_github_repo_info(payload: GitHubRepoInfoRequest):
             repo=repo_name,
             full_name=data.get("full_name", f"{owner}/{repo_name}"),
             default_branch=default_branch,
-            is_private=data.get("private", False),
+            is_private=is_private,
             description=data.get("description"),
             has_package_json=has_pkg,
             has_lockfile=has_lock,
             latest_commit_sha=commit_sha
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except HTTPException:
-        raise
+        raise HTTPException(status_code=400, detail=scrub_sensitive_tokens(str(e), payload.auth_token))
+    except HTTPException as he:
+        he.detail = scrub_sensitive_tokens(str(he.detail), payload.auth_token)
+        raise he
     except Exception as e:
-        logger.error(f"Failed to inspect GitHub repo: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        cleaned = scrub_sensitive_tokens(str(e), payload.auth_token)
+        logger.error(f"Failed to inspect GitHub repo: {cleaned}")
+        raise HTTPException(status_code=500, detail=cleaned)
 
 
 @router.post("/import/archive", response_model=GraphAnalysisResponse, summary="Upload a project ZIP archive or folder bundle safely")
@@ -640,6 +684,8 @@ async def import_project_archive(
             package_json=pkg_json,
             package_lock_json=pkg_lock,
             import_source="archive_upload",
+            extra_warnings=meta.get("lock_warnings", []),
+            fallback_name=meta.get("top_level_folder"),
             repo=repo,
             session_id=session_key
         )

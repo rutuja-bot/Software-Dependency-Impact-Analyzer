@@ -82,6 +82,7 @@ export default function ProjectUploader({ onAnalyze, onImportSuccess, isLoading 
   // Tab 1: GitHub Import State
   const [repoUrl, setRepoUrl] = useState('');
   const [branch, setBranch] = useState('');
+  const [authToken, setAuthToken] = useState('');
   const [repoInfo, setRepoInfo] = useState(null);
   const [isInspecting, setIsInspecting] = useState(false);
   const [githubError, setGithubError] = useState(null);
@@ -107,14 +108,94 @@ export default function ProjectUploader({ onAnalyze, onImportSuccess, isLoading 
   const [successBanner, setSuccessBanner] = useState(null);
 
   // -------------------------------------------------------------
-  // TAB 1: GitHub Handlers
+  // TAB 1: GitHub Handlers & URL Verification
   // -------------------------------------------------------------
+  const getRepoHostStatus = (urlStr) => {
+    if (!urlStr || !urlStr.trim()) return null;
+    let parsed;
+    try {
+      let raw = urlStr.trim();
+      if (!raw.startsWith('http://') && !raw.startsWith('https://')) {
+        raw = 'https://' + raw;
+      }
+      parsed = new URL(raw);
+    } catch {
+      return { status: 'invalid', message: 'Invalid URL format' };
+    }
+
+    if (parsed.protocol !== 'https:') {
+      return { status: 'external', message: 'External link - could be hazardous (HTTPS required)' };
+    }
+
+    if (parsed.username || parsed.password) {
+      return { status: 'external', message: 'External link - could be hazardous (Credentials in URL not allowed)' };
+    }
+
+    if (parsed.port && parsed.port !== '' && parsed.port !== '443') {
+      return { status: 'external', message: 'External link - could be hazardous (Custom ports not allowed)' };
+    }
+
+    let hostname = parsed.hostname.toLowerCase().trim();
+    if (hostname.endsWith('.')) {
+      hostname = hostname.slice(0, -1);
+    }
+
+    const ipv4Pattern = /^(\d{1,3}\.){3}\d{1,3}$/;
+    if (hostname === 'localhost' || ipv4Pattern.test(hostname) || hostname.startsWith('[') || hostname.endsWith(']')) {
+      return { status: 'external', message: 'External link - could be hazardous (Localhost/IP not allowed)' };
+    }
+
+    if (hostname.includes('xn--')) {
+      return { status: 'external', message: 'External link - could be hazardous (Punycode domains not allowed)' };
+    }
+
+    if (hostname === 'github.com') {
+      return { status: 'verified', host: 'github.com' };
+    }
+    if (hostname === 'gitlab.com' || hostname === 'bitbucket.org') {
+      return { status: 'unsupported', host: hostname, message: 'Verified platform, import not supported yet' };
+    }
+
+    return { status: 'external', message: 'External link - could be hazardous' };
+  };
+
+  const urlHostStatus = React.useMemo(() => getRepoHostStatus(repoUrl), [repoUrl]);
+
   const validateGitHubUrl = (url) => {
-    const trimmed = url.trim();
+    const trimmed = (url || '').trim();
     if (!trimmed) return "Please enter a GitHub repository URL.";
-    const githubRegex = /^(?:https?:\/\/)?(?:www\.)?github\.com\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)(?:\.git)?(?:\/)?$/;
-    if (!githubRegex.test(trimmed)) {
-      return "Please enter a valid GitHub repository URL (e.g. https://github.com/owner/repository).";
+    const hostStatus = getRepoHostStatus(trimmed);
+    if (!hostStatus || hostStatus.status === 'invalid') {
+      return "Please enter a valid repository URL.";
+    }
+    if (hostStatus.status === 'unsupported') {
+      return "Verified platform, import not supported yet.";
+    }
+    if (hostStatus.status === 'external') {
+      return hostStatus.message || "External link - could be hazardous.";
+    }
+    if (hostStatus.status !== 'verified') {
+      return "External link - could be hazardous.";
+    }
+
+    try {
+      let raw = trimmed;
+      if (!raw.startsWith('http://') && !raw.startsWith('https://')) {
+        raw = 'https://' + raw;
+      }
+      const parsed = new URL(raw);
+      const cleanPath = parsed.pathname.replace(/^\/+|\/+$/g, '');
+      const parts = cleanPath.split('/');
+      if (parts.length < 2 || !parts[0] || !parts[1]) {
+        return "Please enter a valid GitHub repository URL in owner/repo format (e.g. https://github.com/owner/repository).";
+      }
+      const repoName = parts[1].replace(/\.git$/i, '');
+      const slugPattern = /^[a-zA-Z0-9_.-]+$/;
+      if (!slugPattern.test(parts[0]) || !slugPattern.test(repoName)) {
+        return "Invalid repository or owner name in URL.";
+      }
+    } catch {
+      return "Invalid repository URL format.";
     }
     return null;
   };
@@ -130,7 +211,8 @@ export default function ProjectUploader({ onAnalyze, onImportSuccess, isLoading 
 
     setIsInspecting(true);
     try {
-      const data = await getGitHubRepoInfo(repoUrl.trim());
+      const currentToken = authToken ? authToken.trim() : null;
+      const data = await getGitHubRepoInfo(repoUrl.trim(), currentToken);
       setRepoInfo(data);
       if (data.default_branch && !branch) {
         setBranch(data.default_branch);
@@ -153,8 +235,9 @@ export default function ProjectUploader({ onAnalyze, onImportSuccess, isLoading 
     }
 
     setIsGithubImporting(true);
+    const currentToken = authToken ? authToken.trim() : null;
     try {
-      const result = await importGitHubRepo(repoUrl.trim(), branch.trim() || null);
+      const result = await importGitHubRepo(repoUrl.trim(), branch.trim() || null, currentToken);
       setSuccessBanner({
         source: 'GitHub',
         title: result.project_name || 'Project',
@@ -171,6 +254,7 @@ export default function ProjectUploader({ onAnalyze, onImportSuccess, isLoading 
       const msg = err.response?.data?.detail || err.message || "Failed to import GitHub repository.";
       setGithubError(msg);
     } finally {
+      setAuthToken('');
       setIsGithubImporting(false);
     }
   };
@@ -470,10 +554,30 @@ export default function ProjectUploader({ onAnalyze, onImportSuccess, isLoading 
           <form onSubmit={handleGitHubImport} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="md:col-span-2 space-y-1.5">
-                <label className="text-xs sm:text-sm font-bold text-slate-800 dark:text-[#F1F5F9] flex items-center space-x-1.5">
-                  <Github className="w-4 h-4 text-[#19B6A4]" />
-                  <span>Public GitHub Repository URL <span className="text-[#F05252]">*</span></span>
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs sm:text-sm font-bold text-slate-800 dark:text-[#F1F5F9] flex items-center space-x-1.5">
+                    <Github className="w-4 h-4 text-[#19B6A4]" />
+                    <span>GitHub Repository URL <span className="text-[#F05252]">*</span></span>
+                  </label>
+                  {urlHostStatus?.status === 'verified' && (
+                    <span className="inline-flex items-center space-x-1 text-[11px] font-medium text-[#22C55E] bg-[#22C55E]/10 px-2 py-0.5 rounded border border-[#22C55E]/30">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>Verified: {urlHostStatus.host}</span>
+                    </span>
+                  )}
+                  {urlHostStatus?.status === 'unsupported' && (
+                    <span className="inline-flex items-center space-x-1 text-[11px] font-medium text-[#F59E0B] bg-[#F59E0B]/10 px-2 py-0.5 rounded border border-[#F59E0B]/30">
+                      <AlertCircle className="w-3 h-3" />
+                      <span>Verified platform, import not supported yet</span>
+                    </span>
+                  )}
+                  {urlHostStatus?.status === 'external' && (
+                    <span className="inline-flex items-center space-x-1 text-[11px] font-medium text-[#F05252] bg-[#F05252]/10 px-2 py-0.5 rounded border border-[#F05252]/30">
+                      <AlertCircle className="w-3 h-3" />
+                      <span>External link - could be hazardous</span>
+                    </span>
+                  )}
+                </div>
                 <div className="flex space-x-2">
                   <input
                     type="url"
@@ -512,6 +616,21 @@ export default function ProjectUploader({ onAnalyze, onImportSuccess, isLoading 
                   className="w-full bg-slate-50 dark:bg-[#111C2E] border border-slate-300 dark:border-[#26364D] rounded-xl px-3.5 py-2.5 text-sm font-mono text-slate-900 dark:text-[#F1F5F9] placeholder-slate-400 dark:placeholder-[#64748B] focus:outline-none focus:border-[#4C8DCE]"
                 />
               </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs sm:text-sm font-bold text-slate-800 dark:text-[#F1F5F9] flex items-center space-x-1.5">
+                <Lock className="w-4 h-4 text-[#4C8DCE]" />
+                <span>Personal Access Token (Optional, for private repositories)</span>
+              </label>
+              <input
+                type="password"
+                value={authToken}
+                onChange={(e) => setAuthToken(e.target.value)}
+                placeholder="ghp_xxxxxxxxxxxxxxxxxxxx or github_pat_..."
+                autoComplete="off"
+                className="w-full bg-slate-50 dark:bg-[#111C2E] border border-slate-300 dark:border-[#26364D] rounded-xl px-3.5 py-2.5 text-sm font-mono text-slate-900 dark:text-[#F1F5F9] placeholder-slate-400 dark:placeholder-[#64748B] focus:outline-none focus:border-[#4C8DCE]"
+              />
             </div>
 
             {/* Inspected Repo Details Preview */}
@@ -567,7 +686,7 @@ export default function ProjectUploader({ onAnalyze, onImportSuccess, isLoading 
             <div className="flex items-start space-x-2.5 text-xs text-slate-500 dark:text-[#94A3B8] bg-slate-50 dark:bg-[#111C2E]/60 p-3 rounded-xl border border-slate-200/80 dark:border-[#26364D]">
               <Info className="w-4 h-4 shrink-0 text-[#4C8DCE] mt-0.5" />
               <div>
-                <span className="font-semibold text-slate-700 dark:text-slate-300">Public & Enterprise Repositories:</span> Public repositories are fetched directly from GitHub's raw API. Private repositories require GitHub OAuth application configuration on the server. Client browser tokens are never transmitted in raw form.
+                <span className="font-semibold text-slate-700 dark:text-slate-300">Public & Private Repositories:</span> Public repositories are fetched directly from GitHub's API. Private repositories require an optional Personal Access Token (PAT) with read access. Tokens are kept in memory only and never stored.
               </div>
             </div>
 
